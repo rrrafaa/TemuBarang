@@ -1,0 +1,64 @@
+# 1. KONFIGURASI LOKAL DAN RAHASIA
+local.properties
+.env
+.env.*
+!.env.example
+!.env.sample
+secrets.properties
+secret.properties
+key.properties
+keystore.properties
+credentials.properties
+supabase.properties
+
+# 2. FILE KUNCI, SERTIFIKAT, KREDENSIAL LAYANAN
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+service-account*.json
+*service-role*.json
+firebase-adminsdk-*.json
+google-services.json
+
+# 3. CACHE, GENERATED OUTPUT, DAN FILE IDE
+.gradle/
+.kotlin/
+.idea/
+*.iml
+*.ipr
+*.iws
+build/
+.cxx/
+.externalNativeBuild/
+captures/
+*.apk
+*.aab
+*.apks
+*.hprof
+*.log
+
+# 4. DATABASE LOKAL, BACKUP, DAN DUMP (BUKAN SCHEMA)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.sql.gz
+*.sql.zip
+backups/
+database/backups/
+database/dumps/
+supabase/.temp/
+supabase/.branches/
+supabase/.profiles/
+
+# 5. FILE SISTEM OPERASI
+.DS_Store
+Thumbs.db
+Desktop.ini
