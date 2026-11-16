@@ -1,23 +1,75 @@
 package com.example.temubarang.features.lost.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.features.lost.ui.component.LostItemCard
+import com.example.temubarang.features.lost.ui.component.LostMessage
+import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
+import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.theme.BrandBackground
+import com.example.temubarang.ui.theme.BrandNavy
 
-// TODO: Pemilik fitur menambahkan ViewModel, LazyColumn/Grid, form Create, dan Repository.
 @Composable
-fun LostItemsScreen(onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Laporan Barang Hilang", style = MaterialTheme.typography.headlineMedium)
-        Text("Fitur anggota 1 belum diimplementasikan. Tabel: lost_items.")
-        Button(onClick = onBack) { Text("Kembali") }
+fun LostItemsScreen(
+    viewModel: LostItemsViewModel,
+    onBack: () -> Unit,
+    onCreate: () -> Unit,
+    onDetail: (String) -> Unit
+) {
+    val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(Unit) { viewModel.refresh() }
+
+    Column(
+        modifier = Modifier.fillMaxSize().background(BrandBackground).statusBarsPadding().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onBack) { Text("← Beranda") }
+            TextButton(onClick = viewModel::refresh, enabled = !state.isLoading) { Text("Muat ulang") }
+        }
+        Text("Barang Hilang", style = MaterialTheme.typography.headlineMedium, color = BrandNavy)
+        Text("Laporan barang hilang yang kamu buat.")
+        GradientPrimaryButton(text = "+ Tambah Laporan", onClick = {
+            viewModel.clearMessages()
+            onCreate()
+        })
+        LostMessage(state.error)
+        LostMessage(state.notice, isError = false)
+        if (state.isLoading && state.items.isEmpty()) {
+            CircularProgressIndicator()
+        } else if (state.items.isEmpty()) {
+            Text("Kamu belum membuat laporan barang hilang. Ketuk tombol Tambah Laporan untuk memulai.")
+        } else {
+            Text("${state.items.size} laporan", style = MaterialTheme.typography.labelMedium)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(state.items, key = { it.id }) { item ->
+                    LostItemCard(item, viewModel.photoUrl(item.imagePath)) {
+                        viewModel.clearMessages()
+                        onDetail(item.id)
+                    }
+                }
+            }
+        }
     }
 }
