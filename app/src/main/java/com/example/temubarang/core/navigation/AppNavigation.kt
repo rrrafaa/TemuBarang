@@ -1,12 +1,12 @@
 package com.example.temubarang.core.navigation
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppNavigationItem
+import com.example.temubarang.ui.component.AppBottomNavigation
 import android.app.Application
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,13 +44,12 @@ object AppRoute {
     const val CLAIMS = "claims"
 }
 
-private data class MainTab(val route: String, val label: String, val symbol: String)
 private val mainTabs = listOf(
-    MainTab(AppRoute.HOME, "Beranda", "⌂"),
-    MainTab(AppRoute.LOST, "Hilang", "⌕"),
-    MainTab(AppRoute.FOUND, "Ditemukan", "▣"),
-    MainTab(AppRoute.CLAIMS, "Klaim", "✓"),
-    MainTab(AppRoute.PROFILE, "Profil", "◉")
+    AppNavigationItem(AppRoute.HOME, "Beranda", R.drawable.ic_house_duotone),
+    AppNavigationItem(AppRoute.LOST, "Hilang", R.drawable.ic_search_duotone),
+    AppNavigationItem(AppRoute.FOUND, "Ditemukan", R.drawable.ic_package_check_duotone),
+    AppNavigationItem(AppRoute.CLAIMS, "Klaim", R.drawable.ic_clipboard_check_duotone),
+    AppNavigationItem(AppRoute.PROFILE, "Profil", R.drawable.ic_user_round_duotone)
 )
 
 /**
@@ -96,25 +95,15 @@ fun AuthenticatedNavigation(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onMainTab) {
-                NavigationBar {
-                    mainTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = {
-                                if (currentRoute != tab.route) {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(AppRoute.HOME) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            icon = { Text(tab.symbol) },
-                            label = { Text(tab.label) },
-                            alwaysShowLabel = true
-                        )
+                AppBottomNavigation(mainTabs, currentRoute, onSelect = { route ->
+                    if (currentRoute != route) {
+                        navController.navigate(route) {
+                            popUpTo(AppRoute.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                }
+                })
             }
         }
     ) { innerPadding ->

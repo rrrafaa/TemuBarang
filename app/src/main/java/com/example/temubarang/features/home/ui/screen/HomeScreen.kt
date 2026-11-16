@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.temubarang.ui.component.AppHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,13 +61,8 @@ fun HomeScreen(
             .statusBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("TemuBarang", style = MaterialTheme.typography.headlineMedium, color = BrandNavy)
-                Text("Bantu temukan barang yang hilang", color = BrandMuted)
-            }
-            TextButton(onClick = viewModel::refresh, enabled = !state.isLoading) { Text("Muat ulang") }
-        }
+        AppHeader("TemuBarang", onRefresh = viewModel::refresh, refreshing = state.isLoading)
+        Text("Bantu temukan barang yang hilang", color = BrandMuted)
         GradientPrimaryButton(text = "Saya Menemukan Barang", onClick = onOpenFound)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Laporan Terbaru", style = MaterialTheme.typography.titleLarge, color = BrandNavy,

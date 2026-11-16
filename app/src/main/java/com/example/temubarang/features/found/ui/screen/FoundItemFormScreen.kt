@@ -1,5 +1,11 @@
 package com.example.temubarang.features.found.ui.screen
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppHeader
+import com.example.temubarang.ui.component.AppIcon
+import com.example.temubarang.features.found.ui.component.FoundFormField
+import com.example.temubarang.features.found.ui.component.FoundChoiceRow
+import androidx.compose.foundation.layout.imePadding
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,10 +19,8 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +42,6 @@ import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
 import com.example.temubarang.features.found.viewmodel.FoundItemsViewModel
 import com.example.temubarang.ui.component.GradientPrimaryButton
 import com.example.temubarang.ui.theme.BrandBackground
-import com.example.temubarang.ui.theme.BrandNavy
 import java.time.LocalDate
 
 /**
@@ -103,13 +106,12 @@ fun FoundItemFormScreen(
 
     Column(
         modifier = Modifier.fillMaxSize().background(BrandBackground)
-            .systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+            .systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        TextButton(onClick = onBack) { Text("← Kembali") }
-        Text(
-            if (editing) "Edit Laporan" else "Laporkan Barang Ditemukan",
-            style = MaterialTheme.typography.headlineSmall, color = BrandNavy
+        AppHeader(
+            title = if (editing) "Edit Laporan" else "Tambah Laporan",
+            onBack = onBack, enabled = !state.isSaving
         )
         Text("Lengkapi informasi barang. Hindari memuat data pribadi dalam foto dan deskripsi.")
         FoundMessage(state.error)
@@ -123,64 +125,27 @@ fun FoundItemFormScreen(
             return@Column
         }
 
-        OutlinedTextField(
-            value = title,
-            onValueChange = { if (editing) editTitle = it else draftViewModel.changeTitle(it) },
-            label = { Text("Nama barang *") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { if (editing) editDescription = it else draftViewModel.changeDescription(it) },
-            label = { Text("Deskripsi / ciri barang *") }, minLines = 3,
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = location,
-            onValueChange = { if (editing) editLocation = it else draftViewModel.changeLocation(it) },
-            label = { Text("Lokasi penemuan *") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = foundAt,
-            onValueChange = { if (editing) editDate = it else draftViewModel.changeFoundAt(it) },
-            label = { Text("Tanggal ditemukan (YYYY-MM-DD) *") },
-            supportingText = { Text("Contoh: 2026-11-11") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-
-        OutlinedTextField(
-            value = handover.campus,
-            onValueChange = { if (editing) editCampus = it else draftViewModel.changeCampus(it) },
-            label = { Text("Kampus *") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        Text("Kategori barang", style = MaterialTheme.typography.titleSmall)
-        foundCategories.forEach { (code, label) ->
-            FilterChip(selected = handover.category == code, onClick = {
-                if (editing) editCategory = code else draftViewModel.changeCategory(code)
-            }, label = { Text(label) }, enabled = !state.isSaving)
-        }
-        Text("Barang sekarang disimpan oleh", style = MaterialTheme.typography.titleSmall)
-        custodyTypes.forEach { (code, label) ->
-            FilterChip(selected = handover.custodyType == code, onClick = {
-                if (editing) editCustody = code else draftViewModel.changeCustodyType(code)
-            }, label = { Text(label) }, enabled = !state.isSaving)
-        }
-        OutlinedTextField(
-            value = handover.pickupLocation,
-            onValueChange = { if (editing) editPickup = it else draftViewModel.changePickupLocation(it) },
-            label = { Text("Lokasi pengambilan *") },
-            supportingText = { Text("Contoh: Pos keamanan Gedung A, bukan alamat rumah pribadi.") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = handover.pickupNotes,
-            onValueChange = { if (editing) editNotes = it else draftViewModel.changePickupNotes(it) },
-            label = { Text("Petunjuk pengambilan (opsional)") },
-            supportingText = { Text("Contoh: Senin–Jumat 08.00–16.00, bawa bukti kepemilikan. Jangan tulis ciri rahasia barang.") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, minLines = 2
-        )
+        FoundFormField("Nama barang *", "Contoh: Kunci motor dengan gantungan biru", title,
+            { if (editing) editTitle = it else draftViewModel.changeTitle(it) }, enabled = !state.isSaving)
+        FoundFormField("Deskripsi / ciri barang *", "Contoh: Kunci motor ditemukan di meja kantin dekat pintu masuk.", description,
+            { if (editing) editDescription = it else draftViewModel.changeDescription(it) }, enabled = !state.isSaving, minLines = 3)
+        FoundFormField("Lokasi penemuan *", "Contoh: Kantin Gedung A, lantai 1", location,
+            { if (editing) editLocation = it else draftViewModel.changeLocation(it) }, enabled = !state.isSaving)
+        FoundFormField("Tanggal ditemukan *", "Contoh: 2026-11-16", foundAt,
+            { if (editing) editDate = it else draftViewModel.changeFoundAt(it) }, enabled = !state.isSaving,
+            hint = "Gunakan format YYYY-MM-DD.")
+        FoundFormField("Kampus *", "Contoh: Universitas Brawijaya, kampus utama", handover.campus,
+            { if (editing) editCampus = it else draftViewModel.changeCampus(it) }, enabled = !state.isSaving)
+        FoundChoiceRow("Kategori barang", foundCategories, handover.category,
+            { if (editing) editCategory = it else draftViewModel.changeCategory(it) }, enabled = !state.isSaving)
+        FoundChoiceRow("Barang sekarang disimpan oleh", custodyTypes, handover.custodyType,
+            { if (editing) editCustody = it else draftViewModel.changeCustodyType(it) }, enabled = !state.isSaving)
+        FoundFormField("Lokasi pengambilan *", "Contoh: Pos keamanan Gedung A", handover.pickupLocation,
+            { if (editing) editPickup = it else draftViewModel.changePickupLocation(it) }, enabled = !state.isSaving,
+            hint = "Pilih tempat umum di kampus, bukan alamat rumah pribadi.")
+        FoundFormField("Petunjuk pengambilan (opsional)", "Contoh: Senin–Jumat 08.00–16.00, bawa bukti kepemilikan.", handover.pickupNotes,
+            { if (editing) editNotes = it else draftViewModel.changePickupNotes(it) }, enabled = !state.isSaving, minLines = 2,
+            hint = "Jangan tulis ciri rahasia yang digunakan untuk memverifikasi kepemilikan.")
 
         if (!editing) {
             Text("Foto barang (opsional, maksimal 5 MB)", style = MaterialTheme.typography.titleSmall)
@@ -188,11 +153,11 @@ fun FoundItemFormScreen(
                 OutlinedButton(
                     onClick = onLaunchCamera,
                     enabled = !state.isSaving && pendingCameraUri == null
-                ) { Text("📷 Ambil Foto") }
+                ) { AppIcon(R.drawable.ic_camera_duotone, null); Text(" Ambil Foto") }
                 OutlinedButton(
                     onClick = onLaunchGallery,
                     enabled = !state.isSaving && pendingCameraUri == null
-                ) { Text("Galeri") }
+                ) { AppIcon(R.drawable.ic_image_duotone, null); Text(" Galeri") }
             }
             FoundMessage(cameraMessage)
             if (pendingCameraUri != null) {
@@ -212,17 +177,10 @@ fun FoundItemFormScreen(
             Text("Foto tetap menggunakan foto saat laporan pertama dibuat.",
                 style = MaterialTheme.typography.bodySmall)
             FoundPhoto(viewModel.photoUrl(item?.imagePath), Modifier.fillMaxWidth().height(180.dp))
-            Text("Status barang", style = MaterialTheme.typography.titleSmall)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                listOf("open", "returned", "closed").forEach { choice ->
-                    FilterChip(
-                        selected = status == choice,
-                        onClick = { status = choice },
-                        label = { Text(choice.foundStatusLabel()) },
-                        enabled = !state.isSaving
-                    )
-                }
-            }
+            FoundChoiceRow(
+                "Status barang", listOf("open", "returned", "closed").associateWith { it.foundStatusLabel() },
+                status, { status = it }, enabled = !state.isSaving
+            )
         }
 
         GradientPrimaryButton(

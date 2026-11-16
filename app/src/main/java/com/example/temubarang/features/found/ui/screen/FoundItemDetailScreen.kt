@@ -1,5 +1,9 @@
 package com.example.temubarang.features.found.ui.screen
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppHeader
+import com.example.temubarang.ui.component.AppIcon
+import com.example.temubarang.features.found.ui.component.FoundSectionCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -73,8 +77,7 @@ fun FoundItemDetailScreen(
             .systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        TextButton(onClick = onBack, enabled = !state.isSaving) { Text("← Daftar barang") }
-        Text("Detail Barang Ditemukan", style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
+        AppHeader("Detail Barang Ditemukan", onBack = onBack, onRefresh = { viewModel.load(itemId) }, refreshing = state.isLoadingDetail || state.reporterLoading, enabled = !state.isSaving)
         FoundMessage(state.error)
         FoundMessage(state.notice, isError = false)
         if (state.isLoadingDetail) {
@@ -82,43 +85,48 @@ fun FoundItemDetailScreen(
         } else if (item == null) {
             Text("Detail tidak tersedia atau laporan sudah dihapus.")
         } else {
-            FoundPhoto(viewModel.photoUrl(item.imagePath), Modifier.fillMaxWidth().height(230.dp))
-            Text(item.title, style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
-            DetailRow("Deskripsi", item.description)
-            DetailRow("Lokasi penemuan", item.foundLocation)
-            DetailRow("Tanggal ditemukan", item.foundAt)
-            DetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
-            DetailRow("Kategori", foundCategories[item.category] ?: item.category)
-            DetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
-            DetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
-            if (item.pickupNotes.isNotBlank()) DetailRow("Petunjuk pengambilan", item.pickupNotes)
-            Text("Pelapor", style = MaterialTheme.typography.titleMedium)
-            if (state.reporterLoading) CircularProgressIndicator()
-            FoundMessage(state.reporterError)
-            if (state.reporterError != null) TextButton(onClick = { viewModel.load(itemId) }) { Text("Muat ulang profil pelapor") }
-            state.reporter?.let { reporter ->
-                DetailRow("Nama", reporter.displayName)
-                DetailRow("Kampus pelapor", reporter.campus.ifBlank { "Belum diisi" })
-                if (reporter.contactEmail.isNullOrBlank() && reporter.phone.isNullOrBlank()) {
-                    Text("Pelapor tidak membagikan kontak. Ikuti petunjuk pengambilan yang tersedia.")
-                }
-                reporter.contactEmail?.takeIf { it.isNotBlank() }?.let { email ->
-                    TextButton(onClick = {
-                        try { uriHandler.openUri("mailto:" + Uri.encode(email, "@")) }
-                        catch (_: Exception) { contactError = "Aplikasi email tidak tersedia. Gunakan alamat kontak yang ditampilkan." }
-                    }) { Text("Email: $email") }
-                }
-                reporter.phone?.takeIf { it.isNotBlank() }?.let { phone ->
-                    TextButton(onClick = {
-                        try { uriHandler.openUri("tel:" + Uri.encode(phone, "+")) }
-                        catch (_: Exception) { contactError = "Aplikasi telepon tidak tersedia. Gunakan nomor yang ditampilkan." }
-                    }) { Text("Telepon: $phone") }
-                }
-                Text("Hubungi pelapor untuk koordinasi. Kontak langsung bukan persetujuan klaim; siapkan bukti kepemilikan.", style = MaterialTheme.typography.bodySmall)
+            FoundSectionCard("Informasi Barang") {
+                FoundPhoto(viewModel.photoUrl(item.imagePath), Modifier.fillMaxWidth().height(230.dp))
+                Text(item.title, style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
+                DetailRow("Deskripsi", item.description)
+                DetailRow("Lokasi penemuan", item.foundLocation)
+                DetailRow("Tanggal ditemukan", item.foundAt)
+                DetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
+                DetailRow("Kategori", foundCategories[item.category] ?: item.category)
+                DetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
+                DetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
+                if (item.pickupNotes.isNotBlank()) DetailRow("Petunjuk pengambilan", item.pickupNotes)
+                DetailRow("Status", item.status.foundStatusLabel())
             }
-            if (!state.reporterLoading && state.reporter == null && state.reporterError == null) Text("Pelapor belum melengkapi profil.")
-            FoundMessage(contactError)
-            DetailRow("Status", item.status.foundStatusLabel())
+            FoundSectionCard("Pelapor") {
+                if (state.reporterLoading) CircularProgressIndicator()
+                FoundMessage(state.reporterError)
+                if (state.reporterError != null) TextButton(onClick = { viewModel.load(itemId) }) { AppIcon(R.drawable.ic_refresh_cw, null); Text(" Muat ulang pelapor") }
+                state.reporter?.let { reporter ->
+                    DetailRow("Nama", reporter.displayName)
+                    DetailRow("Kampus pelapor", reporter.campus.ifBlank { "Belum diisi" })
+                    if (reporter.contactEmail.isNullOrBlank() && reporter.phone.isNullOrBlank()) {
+                        Text("Pelapor tidak membagikan kontak. Ikuti petunjuk pengambilan yang tersedia.")
+                    }
+                    reporter.contactEmail?.takeIf { it.isNotBlank() }?.let { email ->
+                        TextButton(onClick = {
+                            try { uriHandler.openUri("mailto:" + Uri.encode(email, "@")) }
+                            catch (_: Exception) { contactError = "Aplikasi email tidak tersedia. Gunakan alamat kontak yang ditampilkan." }
+                        }) { AppIcon(R.drawable.ic_mail_duotone, null); Text(" Email: $email") }
+                    }
+                    reporter.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                        TextButton(onClick = {
+                            try { uriHandler.openUri("tel:" + Uri.encode(phone, "+")) }
+                            catch (_: Exception) { contactError = "Aplikasi telepon tidak tersedia. Gunakan nomor yang ditampilkan." }
+                        }) { AppIcon(R.drawable.ic_phone_duotone, null); Text(" Telepon: $phone") }
+                    }
+                    Text("Hubungi pelapor untuk koordinasi. Kontak langsung bukan persetujuan klaim; siapkan bukti kepemilikan.", style = MaterialTheme.typography.bodySmall)
+                }
+                if (!state.reporterLoading && state.reporter == null && state.reporterError == null) {
+                    Text("Pelapor belum melengkapi profil.")
+                }
+                FoundMessage(contactError)
+            }
             if (viewModel.userId == item.reporterId) {
                 if (!state.isSaving) {
                     GradientPrimaryButton("Edit Laporan / Ubah Status", onClick = { onEdit(item.id) })
@@ -127,7 +135,8 @@ fun FoundItemDetailScreen(
                     onClick = { confirmDelete = true }, enabled = !state.isSaving,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (state.isSaving) "Menghapus..." else "Hapus Laporan",
+                    AppIcon(R.drawable.ic_trash_duotone, null)
+                    Text(if (state.isSaving) " Menghapus..." else " Hapus Laporan",
                         color = MaterialTheme.colorScheme.error)
                 }
             } else {
