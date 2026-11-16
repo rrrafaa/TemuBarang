@@ -75,6 +75,8 @@ fun AuthenticatedNavigation(
     val application = LocalContext.current.applicationContext as Application
     val foundVm: FoundItemsViewModel = viewModel(key = "found:${authState.userId}", factory = FoundItemsViewModel.factory(application))
     val homeVm: HomeViewModel = viewModel(key = "home:${authState.userId}", factory = HomeViewModel.Factory)
+    val profileVm: ProfileViewModel = viewModel(key = "profile:${authState.userId}", factory = ProfileViewModel.Factory)
+    val profileState by profileVm.state.collectAsState()
     val foundState by foundVm.uiState.collectAsState()
     LaunchedEffect(foundState.revision) {
         if (foundState.revision > 0) homeVm.refresh()
@@ -122,11 +124,10 @@ fun AuthenticatedNavigation(
             composable(AppRoute.HOME) {
                 HomeScreen(
                     viewModel = homeVm,
+                    userName = profileState.profile?.displayName.orEmpty(),
                     onOpenLost = { navController.navigate(AppRoute.LOST) },
                     onOpenFound = { navController.navigate(AppRoute.FOUND) },
                     onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
-                    onLogout = onLogout,
-                    isLoggingOut = authState.isSubmitting,
                     errorMessage = authState.error
                 )
             }
@@ -218,7 +219,6 @@ fun AuthenticatedNavigation(
                 )
             }
             composable(AppRoute.PROFILE) {
-                val profileVm: ProfileViewModel = viewModel(key = "profile:${authState.userId}", factory = ProfileViewModel.Factory)
                 ProfileScreen(profileVm, onLogout, authState.isSubmitting, authState.error)
             }
             composable(AppRoute.CLAIMS) {

@@ -14,7 +14,7 @@ import com.example.temubarang.features.found.model.filterFoundItems
 import com.example.temubarang.features.found.ui.component.FoundItemCard
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.found.viewmodel.FoundItemsViewModel
-import com.example.temubarang.ui.component.AppHeader
+import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.component.AppIcon
 import com.example.temubarang.ui.component.GradientPrimaryButton
 import com.example.temubarang.ui.theme.BrandBackground
@@ -33,49 +33,47 @@ fun FoundItemsScreen(
     val visible = filterFoundItems(state.items, query, onlyOpen, onlyMine, viewModel.userId)
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    Column(Modifier.fillMaxSize().background(BrandBackground).statusBarsPadding()) {
-        // The list owns scrolling; the primary action stays above the parent navbar.
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                AppHeader("Barang Ditemukan", onBack = onBack,
-                    onRefresh = viewModel::refresh, refreshing = state.isLoading)
-            }
-            item { Text("Temukan barangmu dan lihat tempat pengambilannya di kampus.") }
-            item {
-                OutlinedTextField(query, { query = it },
-                    placeholder = { Text("Cari barang, kampus, atau lokasi") },
-                    leadingIcon = { AppIcon(R.drawable.ic_search_duotone, null) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = { Text("Tersedia") })
-                    FilterChip(onlyMine, { onlyMine = !onlyMine }, label = { Text("Laporan saya") })
+    AppPage("Barang Ditemukan", onBack = onBack, onRefresh = viewModel::refresh, refreshing = state.isLoading) {
+        Column(Modifier.fillMaxSize()) {
+            // The list owns scrolling; the primary action stays above the parent navbar.
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item { Text("Temukan barangmu dan lihat tempat pengambilannya di kampus.") }
+                item {
+                    OutlinedTextField(query, { query = it },
+                        placeholder = { Text("Cari barang, kampus, atau lokasi") },
+                        leadingIcon = { AppIcon(R.drawable.ic_search_duotone, null) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
-            }
-            item { FoundMessage(state.error); FoundMessage(state.notice, isError = false) }
-            if (state.isLoading && state.items.isEmpty()) item { CircularProgressIndicator() }
-            else if (visible.isEmpty()) item { Text("Tidak ada laporan yang cocok. Coba ubah pencarian atau filter.") }
-            else {
-                item { Text("${visible.size} laporan", style = MaterialTheme.typography.labelMedium) }
-                items(visible, key = { it.id }) { item ->
-                    FoundItemCard(item, viewModel.photoUrl(item.imagePath)) {
-                        viewModel.clearMessage()
-                        onDetail(item.id)
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = { Text("Tersedia") })
+                        FilterChip(onlyMine, { onlyMine = !onlyMine }, label = { Text("Laporan saya") })
+                    }
+                }
+                item { FoundMessage(state.error); FoundMessage(state.notice, isError = false) }
+                if (state.isLoading && state.items.isEmpty()) item { CircularProgressIndicator() }
+                else if (visible.isEmpty()) item { Text("Tidak ada laporan yang cocok. Coba ubah pencarian atau filter.") }
+                else {
+                    item { Text("${visible.size} laporan", style = MaterialTheme.typography.labelMedium) }
+                    items(visible, key = { it.id }) { item ->
+                        FoundItemCard(item, viewModel.photoUrl(item.imagePath)) {
+                            viewModel.clearMessage()
+                            onDetail(item.id)
+                        }
                     }
                 }
             }
-        }
-        Surface(tonalElevation = 2.dp) {
-            GradientPrimaryButton(
-                text = "Tambah Laporan", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                leadingIcon = { AppIcon(R.drawable.ic_circle_plus_duotone, null) },
-                onClick = { viewModel.clearMessage(); onCreate() }
-            )
+            Surface(tonalElevation = 2.dp) {
+                GradientPrimaryButton(
+                    text = "Tambah Laporan", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    leadingIcon = { AppIcon(R.drawable.ic_circle_plus_duotone, null) },
+                    onClick = { viewModel.clearMessage(); onCreate() }
+                )
+            }
         }
     }
 }

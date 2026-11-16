@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +27,7 @@ import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
 import com.example.temubarang.ui.component.GradientPrimaryButton
 import com.example.temubarang.ui.theme.BrandBackground
 import com.example.temubarang.ui.theme.BrandNavy
+import com.example.temubarang.ui.component.AppPage
 
 @Composable
 fun LostItemsScreen(
@@ -71,5 +73,8 @@ fun LostItemsScreen(
                 }
             }
         }
+fun LostItemsScreen(onBack: () -> Unit) {
+    AppPage("Barang Hilang", onBack = onBack) {
+        Text("Fitur laporan barang hilang sedang dikembangkan.", Modifier.padding(24.dp))
     }
 }
