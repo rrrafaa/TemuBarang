@@ -13,6 +13,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -75,7 +76,7 @@ class FoundItemRepository(
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         require(status in setOf("open", "returned", "closed")) { "Status laporan tidak valid." }
-        client.from(TABLE).update(
+        val updated = client.from(TABLE).update(
             FoundItemChanges(
                 title.trim(), description.trim(), location.trim(), date.trim(), status
             )
@@ -84,8 +85,35 @@ class FoundItemRepository(
                 eq("id", id)
                 eq("reporter_id", userId)
             }
-        }
+            select()
+        }.decodeList<FoundItem>().singleOrNull()
+        check(updated != null) { "Laporan tidak diperbarui. Data sudah dihapus atau izin edit tidak tersedia." }
         Unit
+    }
+
+    /** RLS tetap wajib; filter pemilik dan RETURNING mencegah sukses palsu (0 baris). */
+    suspend fun delete(id: String): String? = withContext(Dispatchers.IO) {
+        val userId = requireUserId()
+        val deleted = client.from(TABLE).delete {
+            filter {
+                eq("id", id)
+                eq("reporter_id", userId)
+            }
+            select()
+        }.decodeList<FoundItem>().singleOrNull()
+            ?: throw IllegalStateException("Laporan tidak terhapus. Data sudah dihapus atau izin hapus tidak tersedia.")
+        // Hapus baris dahulu: foto jangan hilang bila DELETE ditolak RLS/relasi klaim.
+        val path = deleted.imagePath?.takeIf { it.startsWith("$userId/found/") }
+        if (path != null) {
+            try {
+                client.storage.from(BUCKET).delete(listOf(path))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                return@withContext "Laporan berhasil dihapus, tetapi foto belum dibersihkan dari Storage. Hubungi pengelola."
+            }
+        }
+        null
     }
 
     /**

@@ -5,8 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.temubarang.core.supabase.SupabaseProvider
+import com.example.temubarang.features.home.model.ReportType
 import com.example.temubarang.features.home.model.HomeUiState
+import com.example.temubarang.features.home.model.buildHomeFeed
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import com.example.temubarang.features.home.repository.HomeRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,22 +24,32 @@ class HomeViewModel(private val repository: HomeRepository) : ViewModel() {
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     fun photoUrl(path: String?): String? = repository.photoUrl(path)
 
+    fun setFilter(type: ReportType?) = _uiState.update { it.copy(filter = type) }
+
+    private var refreshJob: Job? = null
+    private var refreshVersion = 0L
+
     fun refresh() {
-        if (_uiState.value.isLoading) return
-        viewModelScope.launch {
+        val version = ++refreshVersion
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val items = repository.listLostItems()
-                _uiState.update { it.copy(lostItems = items) }
+                val items = coroutineScope {
+                    val lost = async { repository.listLostItems() }
+                    val found = async { repository.listFoundItems() }
+                    buildHomeFeed(lost.await(), found.await())
+                }
+                _uiState.update { it.copy(items = items) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("TemuBarangHome", "Gagal memuat laporan barang hilang", e)
+                Log.e("TemuBarangHome", "Gagal memuat feed laporan", e)
                 _uiState.update { it.copy(error =
-                    "Gagal memuat barang hilang. Periksa koneksi, sesi login, dan izin akses database."
+                    "Gagal memuat laporan hilang dan ditemukan. Periksa koneksi, sesi login, dan izin akses database."
                 ) }
             } finally {
-                _uiState.update { it.copy(isLoading = false) }
+                if (version == refreshVersion) _uiState.update { it.copy(isLoading = false) }
             }
         }
     }

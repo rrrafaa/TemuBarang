@@ -9,13 +9,13 @@
 | Fitur | Deskripsi | Status pada baseline proyek |
 | --- | --- | --- |
 | **Login & Register** | Autentikasi email/password, validasi form, penanganan error pada UI, sesi pengguna, dan logout | Sudah diimplementasikan |
-| **Beranda** | Menampilkan daftar laporan barang hilang terbaru dari database | Sudah diimplementasikan sebagai tampilan **Read** |
-| **Laporan Barang Ditemukan** | Menambah laporan, melihat daftar dan detail, mengedit laporan, memilih foto dari galeri atau kamera, serta mengunggah foto ke Cloud Storage | Sudah diimplementasikan; perlu pengujian pada perangkat masing-masing |
+| **Beranda** | Menampilkan feed laporan hilang dan ditemukan terbaru dari database, filter jenis laporan, serta akses detail Found | Sudah diimplementasikan sebagai tampilan **Read** |
+| **Laporan Barang Ditemukan** | Menambah laporan, melihat daftar dan detail, mengedit dan menghapus laporan milik sendiri dengan konfirmasi, memilih foto dari galeri atau kamera, serta mengunggah foto ke Cloud Storage | Sudah diimplementasikan; perlu pengujian pada perangkat masing-masing |
 | **Laporan Barang Hilang** | Mengelola laporan barang hilang milik pengguna | Modul anggota; CRUD masih dikembangkan |
 | **Klaim Barang** | Mengajukan klaim terhadap laporan barang ditemukan dan melihat statusnya | Modul anggota; masih dikembangkan |
 | **Bottom Navigation** | Navigasi Beranda, Hilang, Ditemukan, dan Klaim | Sudah diimplementasikan |
 
-**Catatan:** Beranda adalah modul bersama yang **membaca** data `lost_items`. Pembuatan dan pengelolaan laporan barang hilang tetap dikerjakan di modul **Barang Hilang**; keduanya tidak perlu dibuat sebagai fitur yang saling menduplikasi.
+**Catatan:** Beranda adalah modul bersama yang **membaca** data `lost_items` dan `found_items`, menggabungkannya berdasarkan waktu pembuatan terbaru, dan menyediakan filter Semua/Hilang/Ditemukan. Kartu Found membuka detail laporan yang sama dengan tab Ditemukan. Setelah tambah/edit/hapus Found, ViewModel memperbarui feed; kembali ke Beranda juga memuat ulang data. Pembuatan dan pengelolaan laporan barang hilang tetap dikerjakan di modul **Barang Hilang**; keduanya tidak perlu dibuat sebagai fitur yang saling menduplikasi.
 
 ## 🛠️ 2. Teknologi yang Digunakan
 
@@ -128,7 +128,7 @@ TemuBarang/
 │   │   │   │   └── supabase/          # Supabase Client bersama
 │   │   │   ├── features/
 │   │   │   │   ├── auth/              # Login, Register, session
-│   │   │   │   ├── home/              # Feed barang hilang (Read)
+│   │   │   │   ├── home/              # Feed hilang dan ditemukan (Read)
 │   │   │   │   ├── lost/              # Fitur anggota 1
 │   │   │   │   ├── found/             # Fitur anggota 2
 │   │   │   │   └── claims/            # Fitur anggota 3
@@ -168,7 +168,7 @@ features/nama_fitur/
 | Anggota | Fitur | Tabel utama | Target minimum |
 | --- | --- | --- | --- |
 | **Anggota 1** | Laporan Barang Hilang (`features/lost`) | `lost_items` | Create, Read, daftar dengan LazyList, ViewModel |
-| **Anggota 2** | Laporan Barang Ditemukan (`features/found`) | `found_items` | Create, Read, LazyList, ViewModel; ditambah Update dan foto kamera/galeri |
+| **Anggota 2** | Laporan Barang Ditemukan (`features/found`) | `found_items` | Create, Read, LazyList, ViewModel; ditambah Update, Delete milik sendiri, dan foto kamera/galeri |
 | **Anggota 3** | Klaim Barang (`features/claims`) | `claims` | Create, Read, daftar dengan LazyList, ViewModel |
 | **Bersama** | Login, Register, Beranda, bottom navigation, integrasi dan pengujian | Supabase Auth dan tabel terkait | Integrasi aplikasi secara keseluruhan |
 
@@ -197,6 +197,14 @@ Pengaturan keamanan data menggunakan **Row Level Security (RLS)**. Hindari menon
 7. Laporan yang tersimpan dapat dilihat kembali melalui daftar dan detail.
 
 **Menyimpan foto di aplikasi kamera belum sama dengan mengirim laporan.** Upload ke Supabase dilakukan ketika pengguna mengirim form laporan.
+
+### Hapus laporan Barang Ditemukan
+
+Buka detail laporan milik sendiri → **Hapus Laporan** → **Batal** atau **Hapus** pada dialog. Selama request berlangsung tombol dinonaktifkan. Repository memfilter `id` dan `reporter_id` pengguna aktif, meminta baris hasil DELETE, dan hanya menampilkan sukses bila tepat satu laporan benar-benar terhapus. Edit juga memeriksa baris hasil UPDATE agar penolakan RLS tidak dianggap berhasil.
+
+Baris database dihapus terlebih dahulu, lalu foto pada folder `<user-id>/found/` dibersihkan. Database dan Storage bukan satu transaksi; jika pembersihan foto gagal, laporan tetap terhapus dan UI menampilkan pemberitahuan agar pengelola membersihkan foto tersisa. Jika relasi klaim menolak DELETE (`23503`), aplikasi menampilkan pesan untuk menyelesaikan klaim atau menutup laporan melalui Edit; aplikasi tidak menghapus klaim secara paksa. Periksa aturan FK backend: bila menggunakan `ON DELETE CASCADE`, perilaku relasi mengikuti aturan database tersebut.
+
+**Prasyarat backend untuk pengelola (bukan dijalankan ulang oleh semua anggota):** pastikan RLS aktif pada `found_items`, SELECT tersedia bagi pengguna login untuk feed, dan DELETE hanya mengizinkan `(select auth.uid()) = reporter_id`. Policy Storage DELETE harus membatasi bucket `temubarang-images` dan folder pertama path ke ID pengguna aktif. Periksa semua policy yang sudah ada; policy permisif lain dapat memperluas akses. Jangan memakai service-role key di aplikasi. Perubahan ini tidak mengubah skema atau policy backend secara otomatis; uji menggunakan dua akun sebelum merge.
 
 ## 🌿 8. Git Workflow untuk Kolaborasi
 
@@ -278,14 +286,41 @@ Gunakan checklist berikut sebelum membuat Pull Request:
 - [ ] Login dengan akun pengujian yang valid berhasil masuk ke Beranda.
 - [ ] Register menampilkan validasi dan pesan kesalahan secara langsung di UI.
 - [ ] Logout berhasil mengembalikan pengguna ke halaman autentikasi.
-- [ ] Beranda menampilkan laporan dari `lost_items` atau *empty state* jika datanya kosong.
+- [ ] Beranda menampilkan laporan dari `lost_items` dan `found_items`, urutan terbaru, filter jenis, dan *empty state* jika kategori kosong.
 - [ ] Bottom navigation menuju tab yang sesuai.
 - [ ] Fitur masing-masing anggota bisa **Create** dan **Read** data dari tabelnya.
 - [ ] Data hasil Select tampil pada **LazyList**, bukan data hardcoded.
 - [ ] Kamera bisa dibuka dari form Barang Ditemukan, lalu kembali ke form tanpa menghapus isian.
 - [ ] Preview foto tampil, upload berhasil, dan foto dapat dimuat kembali dari Storage.
 - [ ] Pesan error jaringan, autentikasi, dan validasi tampil tanpa membuat aplikasi crash.
-- [ ] Data pengguna lain tidak bisa diedit tanpa izin.
+- [ ] Data pengguna lain tidak bisa diedit atau dihapus, termasuk melalui request langsung ke API.
+
+### Checklist tambahan Found dan integrasi Beranda
+
+- [ ] Akun A membuat laporan dengan foto; laporan muncul di tab Ditemukan dan filter Ditemukan/Semua di Beranda.
+- [ ] Kartu Found di Beranda membuka detail dengan ID, foto, lokasi, dan status yang sama.
+- [ ] Akun A mengedit status/judul; kembali ke Beranda menampilkan data terbaru.
+- [ ] Dialog hapus → Batal tidak mengubah data; Hapus menghilangkan laporan dari daftar dan Beranda.
+- [ ] Foto milik laporan yang dihapus dibersihkan dari Storage; kegagalan Storage menghasilkan pemberitahuan yang berbeda dari kegagalan DELETE database.
+- [ ] Akun B tidak melihat tombol edit/hapus milik A; request DELETE langsung dari B ditolak RLS dan data A tetap ada.
+- [ ] DELETE tanpa policy/izin tidak menampilkan sukses palsu; FK klaim yang membatasi DELETE menghasilkan pesan yang jelas.
+- [ ] Uji jaringan terputus, daftar kosong, ID hilang/ditemukan yang sama, dan navigasi setelah hapus dari detail yang dibuka lewat Beranda.
+
+### Pemetaan requirement tugas dan batas cakupan
+
+| Ketentuan | Implementasi / status |
+| --- | --- |
+| Tema bermanfaat dan konten sesuai etika | Pelaporan barang hilang/ditemukan untuk masyarakat; gunakan data demo yang pantas dan tidak memuat data pribadi sensitif |
+| Maksimal 4 anggota | Pembagian README memuat 3 anggota; jumlah anggota aktual diverifikasi kelompok |
+| Kotlin + Jetpack Compose + Supabase | Stack aplikasi yang sudah digunakan |
+| Found: tabel + Create/Read | `found_items`, `FoundItemRepository.create/list/get` |
+| Found: list Compose + ViewModel | `LazyColumn`, `FoundItemsViewModel`, `StateFlow`; draft form melalui `FoundDraftViewModel` |
+| Found: Update/Delete opsional | Edit/status dan hapus khusus pelapor, dengan validasi hasil server |
+| Upload dan tampilkan foto Cloud Storage | Kamera/galeri → Storage → `image_path` → Coil di daftar/detail/beranda |
+| Login/Register kelompok | Implementasi tersedia melalui Auth ViewModel; tetap perlu uji backend/perangkat |
+| Semua anggota memiliki C/R + LazyList + ViewModel | **Belum lengkap:** Lost dan Claims masih placeholder di baseline; wajib diselesaikan pemilik fiturnya sebelum pengumpulan |
+
+PR Found tidak menyatakan seluruh requirement kelompok sudah lulus. Build, RLS, upload, autentikasi, dan alur perangkat harus benar-benar diuji; checklist di atas sengaja belum dicentang sebelum ada hasil.
 
 ## 🩺 11. Troubleshooting
 

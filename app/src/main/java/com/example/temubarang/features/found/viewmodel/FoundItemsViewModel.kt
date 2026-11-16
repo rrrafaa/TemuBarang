@@ -11,6 +11,7 @@ import com.example.temubarang.features.found.model.FoundErrorMapper
 import com.example.temubarang.features.found.model.FoundFormValidator
 import com.example.temubarang.features.found.model.FoundUiState
 import com.example.temubarang.features.found.repository.FoundItemRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,9 +27,13 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
     fun photoUrl(path: String?): String? = repository.publicPhotoUrl(path)
     fun clearMessage() = _uiState.update { it.copy(error = null, notice = null) }
 
+    private var refreshJob: Job? = null
+    private var refreshVersion = 0L
+
     fun refresh() {
-        if (_uiState.value.isLoading) return
-        viewModelScope.launch {
+        val version = ++refreshVersion
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val result = repository.list()
@@ -38,7 +43,7 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
             } catch (e: Exception) {
                 showError(e)
             } finally {
-                _uiState.update { it.copy(isLoading = false) }
+                if (version == refreshVersion) _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -73,7 +78,7 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
                 repository.create(title, description, location, date, photo)
-                _uiState.update { it.copy(notice = "Laporan berhasil ditambahkan.") }
+                _uiState.update { it.copy(notice = "Laporan berhasil ditambahkan.", revision = it.revision + 1) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {
@@ -106,13 +111,41 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
                 repository.update(id, title, description, location, date, status)
                 _uiState.update { state ->
                     state.copy(
-                        notice = "Laporan berhasil diperbarui.",
+                        notice = "Laporan berhasil diperbarui.", revision = state.revision + 1,
                         detail = state.detail?.takeIf { it.id == id }?.copy(
                             title = title.trim(), description = description.trim(),
                             foundLocation = location.trim(), foundAt = date.trim(), status = status
                         ) ?: state.detail
                     )
                 }
+                onSuccess()
+                refresh()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showError(e)
+            } finally {
+                _uiState.update { it.copy(isSaving = false) }
+            }
+        }
+    }
+
+    fun delete(id: String, onSuccess: () -> Unit) {
+        if (_uiState.value.isSaving) return
+        val item = _uiState.value.detail?.takeIf { it.id == id }
+        if (item == null || item.reporterId != userId) {
+            _uiState.update { it.copy(error = "Hanya pelapor yang dapat menghapus laporan ini.") }
+            return
+        }
+        _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
+        viewModelScope.launch {
+            try {
+                val warning = repository.delete(id)
+                _uiState.update { state -> state.copy(
+                    revision = state.revision + 1,
+                    items = state.items.filterNot { it.id == id }, detail = null,
+                    notice = warning ?: "Laporan berhasil dihapus."
+                ) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {

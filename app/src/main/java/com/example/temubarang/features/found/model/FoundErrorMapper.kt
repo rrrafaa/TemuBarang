@@ -17,6 +17,8 @@ object FoundErrorMapper {
                 "Sesi login tidak berlaku. Silakan login kembali."
             "row level security" in all || "42501" in all || "permission denied" in all || "403" in all ->
                 "Akses ditolak Supabase (RLS). Pastikan kamu login dan mengubah laporan milik sendiri."
+            "23503" in all || "foreign key" in all ->
+                "Laporan masih terkait klaim. Selesaikan klaim atau tutup laporan melalui Edit sebelum menghapus."
             "23514" in all || "check constraint" in all ->
                 "Data tidak memenuhi aturan database. Periksa nama, deskripsi, tanggal, dan status."
             "413" in all || "payload too large" in all || "file size" in all ->

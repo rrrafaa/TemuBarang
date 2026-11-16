@@ -1,6 +1,7 @@
 package com.example.temubarang.features.found.model
 
 data class FoundUiState(
+    val revision: Long = 0,
     val items: List<FoundItem> = emptyList(),
     val isLoading: Boolean = false,
     val isLoadingDetail: Boolean = false,

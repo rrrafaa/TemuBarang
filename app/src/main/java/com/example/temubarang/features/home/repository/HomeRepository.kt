@@ -1,6 +1,7 @@
 package com.example.temubarang.features.home.repository
 
 import com.example.temubarang.features.home.model.HomeLostItem
+import com.example.temubarang.features.found.model.FoundItem
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
@@ -14,6 +15,12 @@ class HomeRepository(private val client: SupabaseClient) {
         client.from("lost_items").select {
             order(column = "created_at", order = Order.DESCENDING)
         }.decodeList<HomeLostItem>()
+    }
+
+    suspend fun listFoundItems(): List<FoundItem> = withContext(Dispatchers.IO) {
+        client.from("found_items").select {
+            order(column = "created_at", order = Order.DESCENDING)
+        }.decodeList<FoundItem>()
     }
 
     fun photoUrl(path: String?): String? = path?.takeIf { it.isNotBlank() }?.let {

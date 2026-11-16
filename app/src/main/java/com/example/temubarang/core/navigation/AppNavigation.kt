@@ -65,6 +65,10 @@ fun AuthenticatedNavigation(
     val application = LocalContext.current.applicationContext as Application
     val foundVm: FoundItemsViewModel = viewModel(factory = FoundItemsViewModel.factory(application))
     val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
+    val foundState by foundVm.uiState.collectAsState()
+    LaunchedEffect(foundState.revision) {
+        if (foundState.revision > 0) homeVm.refresh()
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
@@ -119,6 +123,7 @@ fun AuthenticatedNavigation(
                     viewModel = homeVm,
                     onOpenLost = { navController.navigate(AppRoute.LOST) },
                     onOpenFound = { navController.navigate(AppRoute.FOUND) },
+                    onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
                     onLogout = onLogout,
                     isLoggingOut = authState.isSubmitting,
                     errorMessage = authState.error
@@ -156,6 +161,13 @@ fun AuthenticatedNavigation(
                 FoundItemDetailScreen(
                     viewModel = foundVm, itemId = id,
                     onBack = { navController.popBackStack() },
+                    onDeleted = {
+                        // Detail juga bisa dibuka langsung dari Beranda.
+                        navController.navigate(AppRoute.FOUND) {
+                            popUpTo(AppRoute.HOME)
+                            launchSingleTop = true
+                        }
+                    },
                     onEdit = { navController.navigate("${AppRoute.FOUND_EDIT}/$it") }
                 )
             }
