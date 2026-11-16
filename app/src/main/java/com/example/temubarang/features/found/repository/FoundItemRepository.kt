@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.example.temubarang.features.found.model.FoundHandover
 import com.example.temubarang.features.found.model.FoundItem
 import com.example.temubarang.features.found.model.FoundItemChanges
 import com.example.temubarang.features.found.model.NewFoundItem
@@ -13,6 +14,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -51,7 +53,7 @@ class FoundItemRepository(
     }
 
     suspend fun create(
-        title: String, description: String, location: String, date: String, imageUri: Uri?
+        title: String, description: String, location: String, date: String, imageUri: Uri?, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         // Sesuai RLS Storage: <auth.uid()>/found/<uuid>.<ext>
@@ -63,7 +65,9 @@ class FoundItemRepository(
                 description = description.trim(),
                 foundLocation = location.trim(),
                 foundAt = date.trim(),
-                imagePath = path
+                campus = handover.campus.trim(), category = handover.category,
+                custodyType = handover.custodyType, pickupLocation = handover.pickupLocation.trim(),
+                pickupNotes = handover.pickupNotes.trim(), imagePath = path
             )
         )
         Unit
@@ -71,21 +75,51 @@ class FoundItemRepository(
 
     suspend fun update(
         id: String, title: String, description: String,
-        location: String, date: String, status: String
+        location: String, date: String, status: String, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         require(status in setOf("open", "returned", "closed")) { "Status laporan tidak valid." }
-        client.from(TABLE).update(
+        val updated = client.from(TABLE).update(
             FoundItemChanges(
-                title.trim(), description.trim(), location.trim(), date.trim(), status
+                title = title.trim(), description = description.trim(), foundLocation = location.trim(),
+                foundAt = date.trim(), status = status, campus = handover.campus.trim(),
+                category = handover.category, custodyType = handover.custodyType,
+                pickupLocation = handover.pickupLocation.trim(), pickupNotes = handover.pickupNotes.trim()
             )
         ) {
             filter {
                 eq("id", id)
                 eq("reporter_id", userId)
             }
-        }
+            select()
+        }.decodeList<FoundItem>().singleOrNull()
+        check(updated != null) { "Laporan tidak diperbarui. Data sudah dihapus atau izin edit tidak tersedia." }
         Unit
+    }
+
+    /** RLS tetap wajib; filter pemilik dan RETURNING mencegah sukses palsu (0 baris). */
+    suspend fun delete(id: String): String? = withContext(Dispatchers.IO) {
+        val userId = requireUserId()
+        val deleted = client.from(TABLE).delete {
+            filter {
+                eq("id", id)
+                eq("reporter_id", userId)
+            }
+            select()
+        }.decodeList<FoundItem>().singleOrNull()
+            ?: throw IllegalStateException("Laporan tidak terhapus. Data sudah dihapus atau izin hapus tidak tersedia.")
+        // Hapus baris dahulu: foto jangan hilang bila DELETE ditolak RLS/relasi klaim.
+        val path = deleted.imagePath?.takeIf { it.startsWith("$userId/found/") }
+        if (path != null) {
+            try {
+                client.storage.from(BUCKET).delete(listOf(path))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                return@withContext "Laporan berhasil dihapus, tetapi foto belum dibersihkan dari Storage. Hubungi pengelola."
+            }
+        }
+        null
     }
 
     /**

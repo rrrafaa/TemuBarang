@@ -1,0 +1,7 @@
+{
+  "name": "temubarang-database-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node found-profiles.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.16" }
+}

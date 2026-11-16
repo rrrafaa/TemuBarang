@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -22,7 +24,8 @@ fun GradientPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    loading: Boolean = false
+    loading: Boolean = false,
+    leadingIcon: (@Composable () -> Unit)? = null
 ) {
     val shape = RoundedCornerShape(16.dp)
     val brush = if (enabled && !loading) BrandGradient else Brush.horizontalGradient(
@@ -48,6 +51,10 @@ fun GradientPrimaryButton(
                 color = Color.White
             )
         } else {
+            if (leadingIcon != null) {
+                leadingIcon()
+                Spacer(Modifier.width(8.dp))
+            }
             Text(text = text)
         }
     }

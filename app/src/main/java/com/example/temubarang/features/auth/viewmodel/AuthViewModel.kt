@@ -30,15 +30,15 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                             SessionStatus.Initializing -> current.copy(isInitializing = true)
                             is SessionStatus.Authenticated -> current.copy(
                                 isInitializing = false,
-                                isAuthenticated = true,
+                                isAuthenticated = true, userId = repository.currentUserId(),
                                 registrationComplete = false,
                                 error = null
                             )
                             is SessionStatus.NotAuthenticated -> current.copy(
-                                isInitializing = false, isAuthenticated = false
+                                isInitializing = false, isAuthenticated = false, userId = null
                             )
                             is SessionStatus.RefreshFailure -> current.copy(
-                                isInitializing = false, isAuthenticated = false,
+                                isInitializing = false, isAuthenticated = false, userId = null,
                                 error = "Sesi berakhir atau gagal diperbarui. Periksa internet lalu login lagi."
                             )
                         }
@@ -48,7 +48,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isInitializing = false, isAuthenticated = false, error = AuthErrorMapper.describe(e))
+                    it.copy(isInitializing = false, isAuthenticated = false, userId = null, error = AuthErrorMapper.describe(e))
                 }
             }
         }

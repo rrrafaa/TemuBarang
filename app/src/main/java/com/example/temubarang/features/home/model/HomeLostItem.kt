@@ -18,7 +18,11 @@ data class HomeLostItem(
 )
 
 data class HomeUiState(
-    val lostItems: List<HomeLostItem> = emptyList(),
+    val items: List<HomeFeedItem> = emptyList(),
+    val filter: ReportType? = null,
     val isLoading: Boolean = false,
     val error: String? = null
-)
+) {
+    val visibleItems: List<HomeFeedItem>
+        get() = items.filter { filter == null || it.type == filter }
+}

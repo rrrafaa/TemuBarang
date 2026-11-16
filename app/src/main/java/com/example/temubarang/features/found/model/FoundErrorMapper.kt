@@ -13,10 +13,14 @@ object FoundErrorMapper {
             return "Tidak bisa menghubungi server. Periksa koneksi internet emulator/HP, lalu coba lagi."
         }
         return when {
+            "pgrst202" in all || "pgrst205" in all || "42703" in all || "42p01" in all ->
+                "Struktur database belum sesuai. Minta pengelola menerapkan migrasi Found dan Profil, lalu coba lagi."
             "jwt" in all || "401" in all || "unauthorized" in all ->
                 "Sesi login tidak berlaku. Silakan login kembali."
             "row level security" in all || "42501" in all || "permission denied" in all || "403" in all ->
                 "Akses ditolak Supabase (RLS). Pastikan kamu login dan mengubah laporan milik sendiri."
+            "23503" in all || "foreign key" in all ->
+                "Laporan masih terkait klaim. Selesaikan klaim atau tutup laporan melalui Edit sebelum menghapus."
             "23514" in all || "check constraint" in all ->
                 "Data tidak memenuhi aturan database. Periksa nama, deskripsi, tanggal, dan status."
             "413" in all || "payload too large" in all || "file size" in all ->

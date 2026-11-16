@@ -1,5 +1,7 @@
 package com.example.temubarang.features.found.ui.component
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +52,7 @@ fun FoundPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
     if (imageUrl.isNullOrBlank()) {
         Surface(color = Color(0xFFEBF2FD), shape = shape, modifier = modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("📦", style = MaterialTheme.typography.headlineMedium)
+                AppIcon(R.drawable.ic_package_duotone, null, Modifier.size(32.dp))
                 Text("Tanpa foto", color = BrandMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -80,6 +82,7 @@ fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
             FoundPhoto(photoUrl, Modifier.size(96.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
+                if (item.campus.isNotBlank()) Text(item.campus, style = MaterialTheme.typography.labelMedium)
                 Text(item.foundLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Ditemukan: ${item.foundAt}", style = MaterialTheme.typography.bodySmall)
                 Surface(shape = RoundedCornerShape(8.dp), color = BrandSoftMint) {
