@@ -344,3 +344,14 @@ Dokumentasi akhir kelompok meliputi penjelasan fitur, arsitektur ViewModel, scre
 ---
 
 **TemuBarang — Membantu mempertemukan kembali barang dengan pemiliknya.**
+
+
+## Pembaruan Found dan Profil Kampus
+
+- Navbar: **Beranda, Hilang, Ditemukan, Klaim, Profil**.
+- Found tetap memakai Kotlin + Compose + ViewModel + Repository; Create/Read/Update/Delete terhubung ke `found_items`, daftar menggunakan `LazyColumn`.
+- Found mencatat kampus, kategori, lokasi penemuan, penyimpan barang, lokasi dan petunjuk pengambilan. Pencarian serta filter tersedia/milik saya membantu menemukan laporan.
+- Profil memiliki Create/Read/Update ke tabel `profiles`; halaman menggunakan `LazyColumn`, ViewModel, dan Repository. Nama/kampus pelapor tersedia di detail Found; kontak dibagikan hanya dengan persetujuan pemilik.
+- Terapkan migrasi sebelum menjalankan versi ini: lihat **[rancangan, ERD, aturan akses, dan panduan database](docs/database-found-profile.md)**. File SQL adalah migrasi skema existing, bukan reset tabel.
+- Integrasi Found pada beranda tetap dipertahankan. Modul Hilang dan Klaim masih perlu diselesaikan oleh pemilik fitur; RPC keputusan klaim sudah disiapkan, UI Klaim belum diimplementasikan.
+- Pengujian database lokal: `npm --prefix supabase/tests ci && npm --prefix supabase/tests test`. Database live, kamera, kontak, dan dua akun tetap harus diuji di perangkat.

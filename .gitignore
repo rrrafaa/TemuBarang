@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+**/build/
+**/node_modules/
+
+.kotlin/

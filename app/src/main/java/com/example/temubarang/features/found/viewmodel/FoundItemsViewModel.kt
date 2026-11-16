@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.temubarang.core.supabase.SupabaseProvider
+import com.example.temubarang.features.found.model.FoundHandover
+import com.example.temubarang.features.profile.repository.ProfileRepository
 import com.example.temubarang.features.found.model.FoundErrorMapper
 import com.example.temubarang.features.found.model.FoundFormValidator
 import com.example.temubarang.features.found.model.FoundUiState
@@ -19,7 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewModel() {
+class FoundItemsViewModel(private val repository: FoundItemRepository, private val profiles: ProfileRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(FoundUiState())
     val uiState: StateFlow<FoundUiState> = _uiState.asStateFlow()
 
@@ -48,28 +50,39 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
         }
     }
 
+    private var detailJob: Job? = null
+    private var detailVersion = 0L
     fun load(id: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingDetail = true, detail = null, error = null) }
+        val version = ++detailVersion
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingDetail = true, detail = null, error = null, reporter = null, reporterError = null, reporterLoading = true) }
             try {
                 val item = repository.get(id)
-                _uiState.update { it.copy(detail = item) }
+                _uiState.update { it.copy(detail = item, isLoadingDetail = false) }
+                try {
+                    val reporter = profiles.reporter(id)
+                    _uiState.update { it.copy(reporter = reporter) }
+                } catch (e: CancellationException) { throw e
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(reporterError = "Profil pelapor belum dapat dimuat. Coba muat ulang detail.") }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 showError(e)
             } finally {
-                _uiState.update { it.copy(isLoadingDetail = false) }
+                if (version == detailVersion) _uiState.update { it.copy(isLoadingDetail = false, reporterLoading = false) }
             }
         }
     }
 
     fun create(
-        title: String, description: String, location: String, date: String, photo: Uri?,
+        title: String, description: String, location: String, date: String, photo: Uri?, handover: FoundHandover,
         onSuccess: () -> Unit
     ) {
         if (_uiState.value.isSaving) return
-        val validation = FoundFormValidator.validate(title, description, location, date)
+        val validation = FoundFormValidator.validate(title, description, location, date) ?: handover.validate()
         if (validation != null) {
             _uiState.update { it.copy(error = validation) }
             return
@@ -77,7 +90,7 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
-                repository.create(title, description, location, date, photo)
+                repository.create(title, description, location, date, photo, handover)
                 _uiState.update { it.copy(notice = "Laporan berhasil ditambahkan.", revision = it.revision + 1) }
                 onSuccess()
                 refresh()
@@ -93,10 +106,10 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
 
     fun edit(
         id: String, title: String, description: String, location: String,
-        date: String, status: String, onSuccess: () -> Unit
+        date: String, status: String, handover: FoundHandover, onSuccess: () -> Unit
     ) {
         if (_uiState.value.isSaving) return
-        val validation = FoundFormValidator.validate(title, description, location, date)
+        val validation = FoundFormValidator.validate(title, description, location, date) ?: handover.validate()
         if (validation != null) {
             _uiState.update { it.copy(error = validation) }
             return
@@ -108,13 +121,16 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
-                repository.update(id, title, description, location, date, status)
+                repository.update(id, title, description, location, date, status, handover)
                 _uiState.update { state ->
                     state.copy(
                         notice = "Laporan berhasil diperbarui.", revision = state.revision + 1,
                         detail = state.detail?.takeIf { it.id == id }?.copy(
                             title = title.trim(), description = description.trim(),
-                            foundLocation = location.trim(), foundAt = date.trim(), status = status
+                            foundLocation = location.trim(), foundAt = date.trim(), status = status,
+                            campus = handover.campus.trim(), category = handover.category,
+                            custodyType = handover.custodyType, pickupLocation = handover.pickupLocation.trim(),
+                            pickupNotes = handover.pickupNotes.trim()
                         ) ?: state.detail
                     )
                 }
@@ -173,7 +189,7 @@ class FoundItemsViewModel(private val repository: FoundItemRepository) : ViewMod
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass.isAssignableFrom(FoundItemsViewModel::class.java))
                 return FoundItemsViewModel(
-                    FoundItemRepository(SupabaseProvider.client, app.contentResolver)
+                    FoundItemRepository(SupabaseProvider.client, app.contentResolver), ProfileRepository(SupabaseProvider.client)
                 ) as T
             }
         }

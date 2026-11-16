@@ -80,6 +80,7 @@ fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
             FoundPhoto(photoUrl, Modifier.size(96.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
+                if (item.campus.isNotBlank()) Text(item.campus, style = MaterialTheme.typography.labelMedium)
                 Text(item.foundLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Ditemukan: ${item.foundAt}", style = MaterialTheme.typography.bodySmall)
                 Surface(shape = RoundedCornerShape(8.dp), color = BrandSoftMint) {

@@ -20,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +64,10 @@ private fun TemuBarangRoot() {
 
     // Tetap dibuat di root, bukan dalam cabang auth. Karena itu NavController dan
     // callback hasil kamera dapat dipulihkan meskipun Activity direkreasi.
-    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    // Navigation and route SavedState must never be reused by another account.
+    val navController = key(authState.userId) { rememberNavController() }
     val context = LocalContext.current
     val draftViewModel: FoundDraftViewModel = viewModel()
 
@@ -126,8 +131,9 @@ private fun TemuBarangRoot() {
         }
     }
 
-    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
-    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(authState.isInitializing, authState.isAuthenticated) {
+        if (!authState.isInitializing && !authState.isAuthenticated) draftViewModel.clearAfterSuccessfulSave()
+    }
     when {
         authState.isInitializing -> CenteredMessage("Memeriksa sesi pengguna...", loading = true)
         authState.isAuthenticated -> AuthenticatedNavigation(

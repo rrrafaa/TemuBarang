@@ -23,6 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalUriHandler
+import android.net.Uri
+import com.example.temubarang.features.found.model.foundCategories
+import com.example.temubarang.features.found.model.custodyTypes
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.features.found.model.foundStatusLabel
@@ -41,6 +45,8 @@ fun FoundItemDetailScreen(
     onDeleted: () -> Unit,
     onEdit: (String) -> Unit
 ) {
+    val uriHandler = LocalUriHandler.current
+    var contactError by rememberSaveable(itemId) { mutableStateOf<String?>(null) }
     val state by viewModel.uiState.collectAsState()
     LaunchedEffect(itemId) { viewModel.load(itemId) }
     var confirmDelete by rememberSaveable(itemId) { mutableStateOf(false) }
@@ -81,6 +87,37 @@ fun FoundItemDetailScreen(
             DetailRow("Deskripsi", item.description)
             DetailRow("Lokasi penemuan", item.foundLocation)
             DetailRow("Tanggal ditemukan", item.foundAt)
+            DetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
+            DetailRow("Kategori", foundCategories[item.category] ?: item.category)
+            DetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
+            DetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
+            if (item.pickupNotes.isNotBlank()) DetailRow("Petunjuk pengambilan", item.pickupNotes)
+            Text("Pelapor", style = MaterialTheme.typography.titleMedium)
+            if (state.reporterLoading) CircularProgressIndicator()
+            FoundMessage(state.reporterError)
+            if (state.reporterError != null) TextButton(onClick = { viewModel.load(itemId) }) { Text("Muat ulang profil pelapor") }
+            state.reporter?.let { reporter ->
+                DetailRow("Nama", reporter.displayName)
+                DetailRow("Kampus pelapor", reporter.campus.ifBlank { "Belum diisi" })
+                if (reporter.contactEmail.isNullOrBlank() && reporter.phone.isNullOrBlank()) {
+                    Text("Pelapor tidak membagikan kontak. Ikuti petunjuk pengambilan yang tersedia.")
+                }
+                reporter.contactEmail?.takeIf { it.isNotBlank() }?.let { email ->
+                    TextButton(onClick = {
+                        try { uriHandler.openUri("mailto:" + Uri.encode(email, "@")) }
+                        catch (_: Exception) { contactError = "Aplikasi email tidak tersedia. Gunakan alamat kontak yang ditampilkan." }
+                    }) { Text("Email: $email") }
+                }
+                reporter.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                    TextButton(onClick = {
+                        try { uriHandler.openUri("tel:" + Uri.encode(phone, "+")) }
+                        catch (_: Exception) { contactError = "Aplikasi telepon tidak tersedia. Gunakan nomor yang ditampilkan." }
+                    }) { Text("Telepon: $phone") }
+                }
+                Text("Hubungi pelapor untuk koordinasi. Kontak langsung bukan persetujuan klaim; siapkan bukti kepemilikan.", style = MaterialTheme.typography.bodySmall)
+            }
+            if (!state.reporterLoading && state.reporter == null && state.reporterError == null) Text("Pelapor belum melengkapi profil.")
+            FoundMessage(contactError)
             DetailRow("Status", item.status.foundStatusLabel())
             if (viewModel.userId == item.reporterId) {
                 if (!state.isSaving) {

@@ -13,6 +13,16 @@ import java.time.LocalDate
  * ViewModel ini di-scope ke MainActivity, BUKAN ke route form yang dapat dilepas.
  */
 class FoundDraftViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
+    val campus = savedStateHandle.getStateFlow("found_draft.campus", "")
+    val category = savedStateHandle.getStateFlow("found_draft.category", "other")
+    val custodyType = savedStateHandle.getStateFlow("found_draft.custody_type", "reporter")
+    val pickupLocation = savedStateHandle.getStateFlow("found_draft.pickup_location", "")
+    val pickupNotes = savedStateHandle.getStateFlow("found_draft.pickup_notes", "")
+    fun changeCampus(value: String) { savedStateHandle["found_draft.campus"] = value }
+    fun changeCategory(value: String) { savedStateHandle["found_draft.category"] = value }
+    fun changeCustodyType(value: String) { savedStateHandle["found_draft.custody_type"] = value }
+    fun changePickupLocation(value: String) { savedStateHandle["found_draft.pickup_location"] = value }
+    fun changePickupNotes(value: String) { savedStateHandle["found_draft.pickup_notes"] = value }
     val title: StateFlow<String> = savedStateHandle.getStateFlow("found_draft.title", "")
     val description: StateFlow<String> = savedStateHandle.getStateFlow("found_draft.description", "")
     val location: StateFlow<String> = savedStateHandle.getStateFlow("found_draft.location", "")
@@ -85,6 +95,8 @@ class FoundDraftViewModel(private val savedStateHandle: SavedStateHandle) : View
 
     /** Hapus draft hanya setelah database benar-benar berhasil menyimpan laporan. */
     fun clearAfterSuccessfulSave() {
+        changeCampus(""); changeCategory("other"); changeCustodyType("reporter")
+        changePickupLocation(""); changePickupNotes("")
         savedStateHandle["found_draft.title"] = ""
         savedStateHandle["found_draft.description"] = ""
         savedStateHandle["found_draft.location"] = ""

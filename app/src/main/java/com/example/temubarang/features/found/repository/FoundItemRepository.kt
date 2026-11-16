@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.example.temubarang.features.found.model.FoundHandover
 import com.example.temubarang.features.found.model.FoundItem
 import com.example.temubarang.features.found.model.FoundItemChanges
 import com.example.temubarang.features.found.model.NewFoundItem
@@ -52,7 +53,7 @@ class FoundItemRepository(
     }
 
     suspend fun create(
-        title: String, description: String, location: String, date: String, imageUri: Uri?
+        title: String, description: String, location: String, date: String, imageUri: Uri?, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         // Sesuai RLS Storage: <auth.uid()>/found/<uuid>.<ext>
@@ -64,7 +65,9 @@ class FoundItemRepository(
                 description = description.trim(),
                 foundLocation = location.trim(),
                 foundAt = date.trim(),
-                imagePath = path
+                campus = handover.campus.trim(), category = handover.category,
+                custodyType = handover.custodyType, pickupLocation = handover.pickupLocation.trim(),
+                pickupNotes = handover.pickupNotes.trim(), imagePath = path
             )
         )
         Unit
@@ -72,13 +75,16 @@ class FoundItemRepository(
 
     suspend fun update(
         id: String, title: String, description: String,
-        location: String, date: String, status: String
+        location: String, date: String, status: String, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         require(status in setOf("open", "returned", "closed")) { "Status laporan tidak valid." }
         val updated = client.from(TABLE).update(
             FoundItemChanges(
-                title.trim(), description.trim(), location.trim(), date.trim(), status
+                title = title.trim(), description = description.trim(), foundLocation = location.trim(),
+                foundAt = date.trim(), status = status, campus = handover.campus.trim(),
+                category = handover.category, custodyType = handover.custodyType,
+                pickupLocation = handover.pickupLocation.trim(), pickupNotes = handover.pickupNotes.trim()
             )
         ) {
             filter {

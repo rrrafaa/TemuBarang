@@ -28,6 +28,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.features.found.model.FoundHandover
+import com.example.temubarang.features.found.model.foundCategories
+import com.example.temubarang.features.found.model.custodyTypes
 import com.example.temubarang.features.found.model.foundStatusLabel
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.found.ui.component.FoundPhoto
@@ -69,6 +72,21 @@ fun FoundItemFormScreen(
     val pendingCameraUri by draftViewModel.pendingCameraUri.collectAsState()
     val cameraMessage by draftViewModel.photoMessage.collectAsState()
 
+    val draftCampus by draftViewModel.campus.collectAsState()
+    val draftCategory by draftViewModel.category.collectAsState()
+    val draftCustody by draftViewModel.custodyType.collectAsState()
+    val draftPickup by draftViewModel.pickupLocation.collectAsState()
+    val draftNotes by draftViewModel.pickupNotes.collectAsState()
+    var editCampus by rememberSaveable(item?.id) { mutableStateOf(item?.campus.orEmpty()) }
+    var editCategory by rememberSaveable(item?.id) { mutableStateOf(item?.category ?: "other") }
+    var editCustody by rememberSaveable(item?.id) { mutableStateOf(item?.custodyType ?: "reporter") }
+    var editPickup by rememberSaveable(item?.id) { mutableStateOf(item?.pickupLocation.orEmpty()) }
+    var editNotes by rememberSaveable(item?.id) { mutableStateOf(item?.pickupNotes.orEmpty()) }
+    val handover = FoundHandover(
+        if (editing) editCampus else draftCampus, if (editing) editCategory else draftCategory,
+        if (editing) editCustody else draftCustody, if (editing) editPickup else draftPickup,
+        if (editing) editNotes else draftNotes
+    )
     var editTitle by rememberSaveable(item?.id) { mutableStateOf(item?.title.orEmpty()) }
     var editDescription by rememberSaveable(item?.id) { mutableStateOf(item?.description.orEmpty()) }
     var editLocation by rememberSaveable(item?.id) { mutableStateOf(item?.foundLocation.orEmpty()) }
@@ -131,6 +149,39 @@ fun FoundItemFormScreen(
             modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
         )
 
+        OutlinedTextField(
+            value = handover.campus,
+            onValueChange = { if (editing) editCampus = it else draftViewModel.changeCampus(it) },
+            label = { Text("Kampus *") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
+        )
+        Text("Kategori barang", style = MaterialTheme.typography.titleSmall)
+        foundCategories.forEach { (code, label) ->
+            FilterChip(selected = handover.category == code, onClick = {
+                if (editing) editCategory = code else draftViewModel.changeCategory(code)
+            }, label = { Text(label) }, enabled = !state.isSaving)
+        }
+        Text("Barang sekarang disimpan oleh", style = MaterialTheme.typography.titleSmall)
+        custodyTypes.forEach { (code, label) ->
+            FilterChip(selected = handover.custodyType == code, onClick = {
+                if (editing) editCustody = code else draftViewModel.changeCustodyType(code)
+            }, label = { Text(label) }, enabled = !state.isSaving)
+        }
+        OutlinedTextField(
+            value = handover.pickupLocation,
+            onValueChange = { if (editing) editPickup = it else draftViewModel.changePickupLocation(it) },
+            label = { Text("Lokasi pengambilan *") },
+            supportingText = { Text("Contoh: Pos keamanan Gedung A, bukan alamat rumah pribadi.") },
+            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
+        )
+        OutlinedTextField(
+            value = handover.pickupNotes,
+            onValueChange = { if (editing) editNotes = it else draftViewModel.changePickupNotes(it) },
+            label = { Text("Petunjuk pengambilan (opsional)") },
+            supportingText = { Text("Contoh: Senin–Jumat 08.00–16.00, bawa bukti kepemilikan. Jangan tulis ciri rahasia barang.") },
+            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, minLines = 2
+        )
+
         if (!editing) {
             Text("Foto barang (opsional, maksimal 5 MB)", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -181,9 +232,9 @@ fun FoundItemFormScreen(
             onClick = {
                 viewModel.clearMessage()
                 if (editing) {
-                    viewModel.edit(itemId!!, title, description, location, foundAt, status, onSaved)
+                    viewModel.edit(itemId!!, title, description, location, foundAt, status, handover, onSaved)
                 } else {
-                    viewModel.create(title, description, location, foundAt, photoUri) {
+                    viewModel.create(title, description, location, foundAt, photoUri, handover) {
                         draftViewModel.clearAfterSuccessfulSave()
                         onSaved()
                     }

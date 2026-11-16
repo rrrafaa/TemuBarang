@@ -30,6 +30,9 @@ import com.example.temubarang.features.home.viewmodel.HomeViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemsScreen
 import com.example.temubarang.ui.theme.BrandBackground
 
+import com.example.temubarang.features.profile.ui.screen.ProfileScreen
+import com.example.temubarang.features.profile.viewmodel.ProfileViewModel
+
 object AppRoute {
     const val HOME = "home"
     const val LOST = "lost_items"
@@ -37,6 +40,7 @@ object AppRoute {
     const val FOUND_CREATE = "found_items/new"
     const val FOUND_DETAIL = "found_items/detail"
     const val FOUND_EDIT = "found_items/edit"
+    const val PROFILE = "profile"
     const val CLAIMS = "claims"
 }
 
@@ -45,7 +49,8 @@ private val mainTabs = listOf(
     MainTab(AppRoute.HOME, "Beranda", "⌂"),
     MainTab(AppRoute.LOST, "Hilang", "⌕"),
     MainTab(AppRoute.FOUND, "Ditemukan", "▣"),
-    MainTab(AppRoute.CLAIMS, "Klaim", "✓")
+    MainTab(AppRoute.CLAIMS, "Klaim", "✓"),
+    MainTab(AppRoute.PROFILE, "Profil", "◉")
 )
 
 /**
@@ -63,8 +68,8 @@ fun AuthenticatedNavigation(
     onLogout: () -> Unit
 ) {
     val application = LocalContext.current.applicationContext as Application
-    val foundVm: FoundItemsViewModel = viewModel(factory = FoundItemsViewModel.factory(application))
-    val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
+    val foundVm: FoundItemsViewModel = viewModel(key = "found:${authState.userId}", factory = FoundItemsViewModel.factory(application))
+    val homeVm: HomeViewModel = viewModel(key = "home:${authState.userId}", factory = HomeViewModel.Factory)
     val foundState by foundVm.uiState.collectAsState()
     LaunchedEffect(foundState.revision) {
         if (foundState.revision > 0) homeVm.refresh()
@@ -181,6 +186,10 @@ fun AuthenticatedNavigation(
                     onBack = { navController.popBackStack() },
                     onSaved = { navController.popBackStack() }
                 )
+            }
+            composable(AppRoute.PROFILE) {
+                val profileVm: ProfileViewModel = viewModel(key = "profile:${authState.userId}", factory = ProfileViewModel.Factory)
+                ProfileScreen(profileVm, onLogout, authState.isSubmitting, authState.error)
             }
             composable(AppRoute.CLAIMS) {
                 ClaimsScreen(onBack = { navController.navigate(AppRoute.HOME) {
