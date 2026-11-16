@@ -79,8 +79,6 @@ fun AuthenticatedNavigation(
     LaunchedEffect(foundState.revision) {
         if (foundState.revision > 0) homeVm.refresh()
     }
-    val foundVm: FoundItemsViewModel = viewModel(factory = FoundItemsViewModel.factory(application))
-    val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
     val lostVm: LostItemsViewModel = viewModel(factory = LostItemsViewModel.factory(application))
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
