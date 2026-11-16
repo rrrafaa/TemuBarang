@@ -28,11 +28,17 @@ import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
 import com.example.temubarang.features.home.ui.screen.HomeScreen
 import com.example.temubarang.features.home.viewmodel.HomeViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemsScreen
+import com.example.temubarang.features.lost.ui.screen.LostItemFormScreen
+import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
+import com.example.temubarang.features.lost.ui.screen.LostItemDetailScreen
 import com.example.temubarang.ui.theme.BrandBackground
 
 object AppRoute {
     const val HOME = "home"
     const val LOST = "lost_items"
+    const val LOST_CREATE = "lost_items/new"
+    const val LOST_DETAIL = "lost_items/detail"
+    const val LOST_EDIT = "lost_items/edit"
     const val FOUND = "found_items"
     const val FOUND_CREATE = "found_items/new"
     const val FOUND_DETAIL = "found_items/detail"
@@ -65,6 +71,7 @@ fun AuthenticatedNavigation(
     val application = LocalContext.current.applicationContext as Application
     val foundVm: FoundItemsViewModel = viewModel(factory = FoundItemsViewModel.factory(application))
     val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
+    val lostVm: LostItemsViewModel = viewModel(factory = LostItemsViewModel.factory(application))
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
@@ -125,11 +132,45 @@ fun AuthenticatedNavigation(
                 )
             }
             composable(AppRoute.LOST) {
-                LostItemsScreen(onBack = { navController.navigate(AppRoute.HOME) {
-                    popUpTo(AppRoute.HOME) { inclusive = false }
-                    launchSingleTop = true
-                } })
+                LostItemsScreen(
+                    viewModel = lostVm,
+                    onBack = { navController.navigate(AppRoute.HOME) {
+                        popUpTo(AppRoute.HOME) { inclusive = false }
+                        launchSingleTop = true
+                    } },
+                    onCreate = { navController.navigate(AppRoute.LOST_CREATE) },
+                    onDetail = { id -> navController.navigate("${AppRoute.LOST_DETAIL}/$id") }
+                )
             }
+            composable(AppRoute.LOST_CREATE) {
+                LostItemFormScreen(
+                    viewModel = lostVm,
+                    itemId = null,
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
+                )
+            }
+
+            composable("${AppRoute.LOST_DETAIL}/{itemId}") { entry ->
+                val id = entry.arguments?.getString("itemId") ?: return@composable
+                LostItemDetailScreen(
+                    viewModel = lostVm,
+                    itemId = id,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") }
+                )
+            }
+
+            composable("${AppRoute.LOST_EDIT}/{itemId}") { entry ->
+                val id = entry.arguments?.getString("itemId") ?: return@composable
+                LostItemFormScreen(
+                    viewModel = lostVm,
+                    itemId = id,
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
+                )
+            }
+
             composable(AppRoute.FOUND) {
                 FoundItemsScreen(
                     viewModel = foundVm,
