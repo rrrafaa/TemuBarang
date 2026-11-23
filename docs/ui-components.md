@@ -44,10 +44,11 @@ Pemeriksaan perangkat tambahan: pilih kelima tab untuk memeriksa lekukan pada po
 
 - `ui/theme/Color.kt`, `Theme.kt`, dan `Type.kt`: warna identitas, tema Material 3, dan hierarki tipografi. Warna status tambahan ada di `DesignTokens.kt`.
 - `ui/theme/DesignTokens.kt`: `AppSpacing`, `AppRadius`, `AppSizes`, dan `AppStatusColors`. Gunakan token saat menambah komponen; jangan mengulangi angka tanpa alasan.
-- `ui/component/AppFields.kt`: `AppSearchBar`, `AppFormField`, `AppSectionCard`, `AppFilterChip`, `AppStatusBadge`, dan `AppDetailRow`. Field menyediakan label, placeholder, supporting text, status error, jenis keyboard, dan multiline; wrapper per fitur tetap dapat menjaga parameter API lama.
+- `ui/component/AppFields.kt`: `AppSearchBar`, `AppFormField`, `AppSectionCard`, `AppFilterChip`, `AppStatusBadge`, `AppDetailRow`, dan `AppDropdownField`. Field menyediakan label, placeholder, supporting text, status error, jenis keyboard, dan multiline; wrapper per fitur tetap dapat menjaga parameter API lama.
 - `ui/component/AppHeader.kt` + `AppPage.kt`: header yang sama untuk beranda, daftar, tambah/edit, dan detail. Tombol kembali dan refresh dikendalikan callback dari navigasi.
 - `ui/component/AppBottomNavigation.kt`: latar transparan; tanpa bidang solid dan tanpa Canvas lekukan. Setiap tab mempunyai area sentuh dan indikator aktif. Navigasi utama dikelola terpusat oleh `AuthenticatedNavigation`.
-- Komponen foto kamera dan galeri tetap menggunakan implementasi fitur masing-masing. Pada form Found, tanggal sekarang menggunakan `DatePickerField` yang sama dengan Lost.
+- `ui/component/AppPhotoPicker.kt` menyatukan tampilan picker foto untuk Lost/Found; callback kamera, galeri, dan penyimpanan URI tetap dimiliki masing-masing fitur.
+- `ui/component/AppDatePicker.kt` menyediakan `AppDatePickerField` bersama dengan kalender tanggal; wrapper lama `DatePickerField` tetap tersedia pada modul Lost untuk kompatibilitas.
 
 Contoh:
 ```kotlin
@@ -57,6 +58,7 @@ AppSectionCard("Detail barang") {
         label = "Nama barang *", placeholder = "Contoh: Kunci motor")
 }
 AppStatusBadge("Masih tersedia")
+AppDropdownField("Kategori barang", options, selected, onSelect = { selected = it })
 ```
 
 Urutan Beranda: sapaan nama, sapaan waktu, search, aksi temuan, judul feed, filter, daftar.
