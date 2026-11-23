@@ -63,7 +63,7 @@ fun LostItemsScreen(
                 } else if (visibleItems.isEmpty()) {
                     item {
                         Text(if (query.isNotBlank()) "Tidak ada barang hilang yang cocok dengan pencarian."
-                            else "Kamu belum membuat laporan barang hilang. Ketuk Tambah Laporan untuk memulai.")
+                            else "Belum ada laporan barang hilang. Ketuk Tambah Laporan untuk memulai.")
                     }
                 } else {
                     item { Text("${visibleItems.size} laporan", style = MaterialTheme.typography.labelMedium) }

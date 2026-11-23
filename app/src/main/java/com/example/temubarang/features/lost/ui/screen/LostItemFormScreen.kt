@@ -56,6 +56,13 @@ fun LostItemFormScreen(
         }
         return
     }
+    if (itemId != null && !viewModel.ownsReport(itemId)) {
+        AppPage("Edit Barang Hilang", onBack = onBack) {
+            Text("Hanya pelapor yang dapat mengedit laporan ini.")
+        }
+        return
+    }
+
     LaunchedEffect(itemId, item?.id) { draftViewModel.prepare(itemId, item) }
     LostItemFormContent(
         viewModel = viewModel, draftViewModel = draftViewModel, itemId = itemId, item = item,

@@ -41,6 +41,7 @@ fun LostItemDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val item = state.items.firstOrNull { it.id == itemId }
+    val isOwner = viewModel.ownsReport(itemId)
     var confirmDelete by rememberSaveable(itemId) { mutableStateOf(false) }
 
     LaunchedEffect(itemId) { if (item == null) viewModel.refresh() }
@@ -67,44 +68,46 @@ fun LostItemDetailScreen(
                     AppDetailRow("Tanggal hilang", item.lostAt)
                 }
                 AppSectionCard("Pelapor") {
-                    Text("Laporan ini dibuat dari akunmu. Informasi kontak publik tidak tersedia pada data laporan barang hilang.",
+                    Text(if (isOwner) "Laporan ini dibuat dari akunmu." else "Laporan ini dibuat oleh pengguna lain.",
                         style = MaterialTheme.typography.bodyMedium)
                 }
-                if (item.status != "found") {
-                    GradientPrimaryButton(
-                        text = "Edit laporan", enabled = !state.isSaving,
-                        onClick = { viewModel.clearMessages(); onEdit(item.id) }
-                    )
+                if (isOwner) {
+                    if (item.status != "found") {
+                        GradientPrimaryButton(
+                            text = "Edit laporan", enabled = !state.isSaving,
+                            onClick = { viewModel.clearMessages(); onEdit(item.id) }
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.updateStatus(item.id, "found", onStatusUpdated) },
+                            enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
+                        ) { Text("Tandai sudah ditemukan") }
+                    }
+                    if (item.status != "closed") {
+                        OutlinedButton(
+                            onClick = { viewModel.updateStatus(item.id, "closed", onStatusUpdated) },
+                            enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
+                        ) { Text("Tutup laporan") }
+                    }
+                    if (item.status != "open") {
+                        OutlinedButton(
+                            onClick = { viewModel.updateStatus(item.id, "open", onStatusUpdated) },
+                            enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
+                        ) { Text("Buka kembali (masih dicari)") }
+                    }
                     OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "found", onStatusUpdated) },
-                        enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
-                    ) { Text("Tandai sudah ditemukan") }
+                        onClick = { confirmDelete = true },
+                        enabled = !state.isSaving,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Hapus laporan") }
                 }
-                if (item.status != "closed") {
-                    OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "closed", onStatusUpdated) },
-                        enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
-                    ) { Text("Tutup laporan") }
-                }
-                if (item.status != "open") {
-                    OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "open", onStatusUpdated) },
-                        enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
-                    ) { Text("Buka kembali (masih dicari)") }
-                }
-                OutlinedButton(
-                    onClick = { confirmDelete = true },
-                    enabled = !state.isSaving,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Hapus laporan") }
             }
         }
     }
 
-    if (confirmDelete) {
+    if (confirmDelete && isOwner) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Hapus laporan?") },

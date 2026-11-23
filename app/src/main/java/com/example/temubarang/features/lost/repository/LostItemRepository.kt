@@ -37,10 +37,9 @@ class LostItemRepository(
     private fun requireUserId(): String = signedInUserId()
         ?: throw IllegalStateException("Sesi belum tersedia. Silakan login terlebih dahulu.")
 
-    suspend fun listMine(): List<LostItem> = withContext(Dispatchers.IO) {
-        val userId = requireUserId()
+    suspend fun list(): List<LostItem> = withContext(Dispatchers.IO) {
+        requireUserId()
         client.from(TABLE).select {
-            filter { eq("reporter_id", userId) }
             order(column = "created_at", order = Order.DESCENDING)
         }.decodeList<LostItem>()
     }

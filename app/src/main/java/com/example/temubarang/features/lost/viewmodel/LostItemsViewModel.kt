@@ -23,6 +23,11 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     private val _uiState = MutableStateFlow(LostUiState())
     val uiState: StateFlow<LostUiState> = _uiState.asStateFlow()
 
+    fun ownsReport(id: String): Boolean {
+        val userId = repository.signedInUserId() ?: return false
+        return _uiState.value.items.any { it.id == id && it.reporterId == userId }
+    }
+
     fun photoUrl(path: String?): String? = repository.publicPhotoUrl(path)
 
     fun refresh() {
@@ -30,7 +35,7 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val items = repository.listMine()
+                val items = repository.list()
                 _uiState.update { it.copy(items = items) }
             } catch (e: CancellationException) {
                 throw e
@@ -90,6 +95,7 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
         onSuccess: () -> Unit
     ) {
         if (_uiState.value.isSaving) return
+        if (!ownsReport(id)) return
         val current = _uiState.value.items.firstOrNull { it.id == id }
         val hasPhoto = newImageUri != null || !current?.imagePath.isNullOrBlank()
         val validationError = LostFormValidator.validate(title, description, location, date)
@@ -106,6 +112,7 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     }
 
     fun updateStatus(id: String, status: String, onSuccess: () -> Unit = {}) {
+        if (!ownsReport(id)) return
         runSaving(notice = "Status laporan diperbarui.", onSuccess = onSuccess) {
             val saved = repository.updateStatus(id, status)
             _uiState.update { s -> s.copy(items = s.items.map { if (it.id == id) saved else it }) }
@@ -114,6 +121,7 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     }
 
     fun delete(id: String, onSuccess: () -> Unit) {
+        if (!ownsReport(id)) return
         val imagePath = _uiState.value.items.firstOrNull { it.id == id }?.imagePath
         runSaving(notice = "Laporan berhasil dihapus.", onSuccess = onSuccess) {
             repository.delete(id, imagePath)
