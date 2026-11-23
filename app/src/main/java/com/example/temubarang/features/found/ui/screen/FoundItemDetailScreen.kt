@@ -118,10 +118,12 @@ fun FoundItemDetailScreen(
                     AppDetailRow("Tanggal ditemukan", item.foundAt)
                     AppDetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
                     AppDetailRow("Kategori", foundCategories[item.category] ?: item.category)
+                    AppStatusBadge(item.status.foundStatusLabel(), positive = item.status == "open")
+                }
+                FoundSectionCard("Informasi Pengambilan") {
                     AppDetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
                     AppDetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
                     if (item.pickupNotes.isNotBlank()) AppDetailRow("Petunjuk pengambilan", item.pickupNotes)
-                    AppStatusBadge(item.status.foundStatusLabel(), positive = item.status == "open")
                 }
                 FoundSectionCard("Pelapor") {
                     if (state.reporterLoading) CircularProgressIndicator()

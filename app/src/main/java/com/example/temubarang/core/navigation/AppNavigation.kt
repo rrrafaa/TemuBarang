@@ -11,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -87,6 +90,7 @@ fun AuthenticatedNavigation(
     }
     val lostVm: LostItemsViewModel = viewModel(key = "lost:${authState.userId}",
         factory = LostItemsViewModel.factory(application))
+    var showRecovery by rememberSaveable(authState.userId) { mutableStateOf(false) }
     val lostState by lostVm.uiState.collectAsState()
     // Keberhasilan dan kesalahan laporan ditampilkan sekali melalui banner pada screen.
     // State di ViewModel tetap bertahan ketika berpindah dari form ke halaman daftar.
@@ -157,7 +161,6 @@ fun AuthenticatedNavigation(
                     onLostDetail = { navController.navigate("${AppRoute.LOST_DETAIL}/$it") },
                     onOpenFound = { openMainTab(AppRoute.FOUND) },
                     onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
-                    onNotifications = { navController.navigate("notifications") },
                     errorMessage = authState.error
                 )
             }
@@ -213,6 +216,9 @@ fun AuthenticatedNavigation(
                 FoundItemsScreen(
                     viewModel = foundVm,
                     lostViewModel = lostVm,
+                    showRecovery = showRecovery,
+                    onTabChanged = { showRecovery = it },
+                    onRecoveryDetail = { navController.navigate("recovery/detail/$it") },
                     onBack = { navController.navigate(AppRoute.HOME) {
                         popUpTo(AppRoute.HOME) { inclusive = false }
                         launchSingleTop = true
@@ -258,16 +264,22 @@ fun AuthenticatedNavigation(
             composable("${AppRoute.CLAIMS}/{foundItemId}") {
                 ClaimsScreen(onBack = { navController.popBackStack() })
             }
-            composable("notifications") {
-                com.example.temubarang.ui.component.AppPage("Notifikasi", onBack = { navController.popBackStack() }) {
-                    androidx.compose.material3.Text("Pusat notifikasi belum terhubung ke riwayat pemberitahuan.")
+            composable("recovery/detail/{requestId}") { entry ->
+                val id = entry.arguments?.getString("requestId") ?: return@composable
+                com.example.temubarang.features.found.ui.screen.RecoveryDetailScreen(lostVm, id) {
+                    navController.popBackStack()
                 }
             }
             composable("recovery/new/{lostItemId}") { entry ->
                 val id = entry.arguments?.getString("lostItemId") ?: return@composable
-                com.example.temubarang.features.lost.ui.screen.RecoveryDraftScreen(lostVm, id) {
-                    navController.popBackStack()
-                }
+                com.example.temubarang.features.lost.ui.screen.RecoveryDraftScreen(
+                    viewModel = lostVm, itemId = id,
+                    onBack = { navController.popBackStack() },
+                    onSubmitted = {
+                        showRecovery = true
+                        finishReportAction(AppRoute.FOUND)
+                    }
+                )
             }
             composable(AppRoute.CLAIMS) {
                 ClaimsScreen(onBack = { navController.navigate(AppRoute.HOME) {

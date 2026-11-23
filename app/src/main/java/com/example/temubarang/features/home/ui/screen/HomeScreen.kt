@@ -22,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.component.AppIcon
 import com.example.temubarang.R
@@ -62,7 +61,6 @@ fun HomeScreen(
     onLostDetail: (String) -> Unit,
     onOpenFound: () -> Unit,
     onFoundDetail: (String) -> Unit,
-    onNotifications: () -> Unit,
     errorMessage: String? = null
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -79,9 +77,6 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                androidx.compose.material3.TextButton(onClick = onNotifications) { Text("Notifikasi") }
-            }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
                     val hour = java.time.LocalTime.now().hour

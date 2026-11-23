@@ -26,29 +26,33 @@ import com.example.temubarang.ui.theme.BrandBackground
 fun FoundItemsScreen(
     viewModel: FoundItemsViewModel,
     lostViewModel: com.example.temubarang.features.lost.viewmodel.LostItemsViewModel,
+    showRecovery: Boolean,
+    onTabChanged: (Boolean) -> Unit,
+    onRecoveryDetail: (String) -> Unit,
     onBack: () -> Unit,
     onCreate: () -> Unit,
     onDetail: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
-    var showRecovery by rememberSaveable { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
+    var publicQuery by rememberSaveable { mutableStateOf("") }
+    var recoveryQuery by rememberSaveable { mutableStateOf("") }
+    val query = if (showRecovery) recoveryQuery else publicQuery
     var onlyOpen by rememberSaveable { mutableStateOf(true) }
     var onlyMine by rememberSaveable { mutableStateOf(false) }
     val visible = filterFoundItems(state.items, query, onlyOpen, onlyMine, viewModel.userId)
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    AppPage("Barang Ditemukan", onBack = onBack, onRefresh = viewModel::refresh, refreshing = state.isLoading) {
+    AppPage("Barang Ditemukan", onBack = onBack, onRefresh = if (showRecovery) null else viewModel::refresh, refreshing = !showRecovery && state.isLoading) {
         Column(Modifier.fillMaxSize()) {
-            AppSearchBar(value = query, onValueChange = { query = it },
+            AppSearchBar(value = query, onValueChange = { if (showRecovery) recoveryQuery = it else publicQuery = it },
                 placeholder = if (showRecovery) "Cari konfirmasi temuan" else "Cari barang, kampus, atau lokasi",
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             TabRow(selectedTabIndex = if (showRecovery) 1 else 0) {
-                Tab(selected = !showRecovery, onClick = { showRecovery = false }, text = { Text("Laporan Publik") })
-                Tab(selected = showRecovery, onClick = { showRecovery = true }, text = { Text("Konfirmasi Temuan") })
+                Tab(selected = !showRecovery, onClick = { onTabChanged(false) }, text = { Text("Laporan Publik") })
+                Tab(selected = showRecovery, onClick = { onTabChanged(true) }, text = { Text("Konfirmasi Temuan") })
             }
             if (showRecovery) {
-                RecoveryHistory(lostViewModel, query)
+                RecoveryHistory(lostViewModel, query, onRecoveryDetail)
                 return@Column
             }
             // The list owns scrolling; the primary action stays above the parent navbar.

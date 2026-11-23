@@ -62,13 +62,17 @@ class LostItemRepository(
         }.decodeList<RecoveryRequest>()
     }
 
-    suspend fun submitRecovery(submission: RecoverySubmission, photo: Uri?, uploadPhoto: Boolean) = withContext(Dispatchers.IO) {
+    private var uploadedRecoveryPhoto: String? = null
+
+    suspend fun submitRecovery(submission: RecoverySubmission, photo: Uri?) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
-        if (photo != null && uploadPhoto) {
-            client.storage.from("recovery-evidence").upload("$userId/${submission.id}.jpg", compressToJpeg(photo)) {
+        val path = "$userId/${submission.id}.jpg"
+        if (photo != null && uploadedRecoveryPhoto != path) {
+            client.storage.from("recovery-evidence").upload(path, compressToJpeg(photo)) {
                 contentType = ContentType.Image.JPEG
                 upsert = false
             }
+            uploadedRecoveryPhoto = path
         }
         client.postgrest.rpc("submit_recovery_request", Json.encodeToJsonElement(RecoverySubmission.serializer(), submission).jsonObject)
     }

@@ -26,12 +26,14 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     val uiState: StateFlow<LostUiState> = _uiState.asStateFlow()
 
     data class RecoveryState(
-        val items: List<RecoveryRequest> = emptyList(), val busy: Boolean = false, val error: String? = null
+        val items: List<RecoveryRequest> = emptyList(), val busy: Boolean = false, val error: String? = null, val notice: String? = null
     )
 
     private val _recovery = MutableStateFlow(RecoveryState())
     val recovery = _recovery.asStateFlow()
     val userId: String? get() = repository.signedInUserId()
+
+    fun clearRecoveryMessage() = _recovery.update { it.copy(error = null, notice = null) }
 
     fun loadRecovery() = runRecovery {
         val requests = repository.listRecovery()
@@ -39,7 +41,8 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     }
 
     fun submitRecovery(submission: RecoverySubmission, photo: Uri?, onSuccess: () -> Unit) = runRecovery {
-        repository.submitRecovery(submission, photo, uploadPhoto = photo != null)
+        repository.submitRecovery(submission, photo)
+        _recovery.update { it.copy(notice = "Pengajuan temuan berhasil dikirim.") }
         onSuccess()
     }
 
