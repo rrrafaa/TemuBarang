@@ -7,6 +7,9 @@ import android.app.Application
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -81,7 +84,17 @@ fun AuthenticatedNavigation(
     LaunchedEffect(foundState.revision) {
         if (foundState.revision > 0) homeVm.refresh()
     }
-    val lostVm: LostItemsViewModel = viewModel(factory = LostItemsViewModel.factory(application))
+    val lostVm: LostItemsViewModel = viewModel(key = "lost:${authState.userId}",
+        factory = LostItemsViewModel.factory(application))
+    val lostState by lostVm.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // Snackbar berada di luar NavHost sehingga tetap terlihat setelah navigasi.
+    LaunchedEffect(lostState.notice) {
+        lostState.notice?.let { snackbarHostState.showSnackbar(it) }
+    }
+    LaunchedEffect(foundState.notice) {
+        foundState.notice?.let { snackbarHostState.showSnackbar(it) }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
@@ -111,6 +124,7 @@ fun AuthenticatedNavigation(
 
     Scaffold(
         containerColor = BrandBackground,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onMainTab) {
@@ -149,7 +163,11 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = null,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                        popUpTo(AppRoute.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    } }
                 )
             }
 
@@ -159,7 +177,12 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") }
+                    onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") },
+                    onStatusUpdated = { navController.navigate(AppRoute.LOST) {
+                        popUpTo(AppRoute.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    } }
                 )
             }
 
@@ -169,7 +192,11 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                        popUpTo(AppRoute.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    } }
                 )
             }
 
@@ -191,7 +218,11 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                        popUpTo(AppRoute.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    } }
                 )
             }
             composable("${AppRoute.FOUND_DETAIL}/{itemId}") { entry ->
@@ -217,7 +248,11 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                        popUpTo(AppRoute.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    } }
                 )
             }
             composable(AppRoute.PROFILE) {

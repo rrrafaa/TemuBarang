@@ -95,15 +95,14 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
             _uiState.update { it.copy(error = validationError, notice = null) }
             return
         }
-        runSaving(notice = "Laporan berhasil diperbarui.") {
+        runSaving(notice = "Laporan berhasil diperbarui.", onSuccess = onSuccess) {
             repository.update(id, title, description, location, date, newImageUri, current?.imagePath)
-            onSuccess()
             refresh()
         }
     }
 
-    fun updateStatus(id: String, status: String) {
-        runSaving(notice = "Status laporan diperbarui.") {
+    fun updateStatus(id: String, status: String, onSuccess: () -> Unit = {}) {
+        runSaving(notice = "Status laporan diperbarui.", onSuccess = onSuccess) {
             repository.updateStatus(id, status)
             refresh()
         }
@@ -111,20 +110,20 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
 
     fun delete(id: String, onSuccess: () -> Unit) {
         val imagePath = _uiState.value.items.firstOrNull { it.id == id }?.imagePath
-        runSaving(notice = "Laporan berhasil dihapus.") {
+        runSaving(notice = "Laporan berhasil dihapus.", onSuccess = onSuccess) {
             repository.delete(id, imagePath)
             _uiState.update { s -> s.copy(items = s.items.filterNot { it.id == id }) }
-            onSuccess()
         }
     }
 
-    private fun runSaving(notice: String, action: suspend () -> Unit) {
+    private fun runSaving(notice: String, onSuccess: () -> Unit = {}, action: suspend () -> Unit) {
         if (_uiState.value.isSaving) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
                 action()
                 _uiState.update { it.copy(notice = notice) }
+                onSuccess()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
