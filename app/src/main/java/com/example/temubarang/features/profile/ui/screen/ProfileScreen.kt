@@ -3,6 +3,8 @@ package com.example.temubarang.features.profile.ui.screen
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,6 +18,7 @@ import com.example.temubarang.R
 import com.example.temubarang.features.found.ui.component.FoundFormField
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.profile.viewmodel.ProfileViewModel
+import com.example.temubarang.features.profile.model.ProfileValidator
 import com.example.temubarang.ui.component.*
 import com.example.temubarang.ui.theme.BrandIndigo
 
@@ -30,11 +33,18 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
     var email by rememberSaveable(profile?.id) { mutableStateOf(profile?.contactEmail.orEmpty()) }
     var phone by rememberSaveable(profile?.id) { mutableStateOf(profile?.phone.orEmpty()) }
     var share by rememberSaveable(profile?.id) { mutableStateOf(profile?.shareContact ?: false) }
+    var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var firstError by remember { mutableStateOf<String?>(null) }
+    var submitVersion by rememberSaveable { mutableIntStateOf(0) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    fun clearError(key: String) { errors = errors - key }
     val enabled = profile != null && !state.loading && !state.saving && !isLoggingOut
     fun edit() {
         name = profile?.displayName.orEmpty(); campus = profile?.campus.orEmpty()
         email = profile?.contactEmail.orEmpty(); phone = profile?.phone.orEmpty()
         share = profile?.shareContact ?: false; editing = true
+        errors = emptyMap(); firstError = null
     }
     androidx.activity.compose.BackHandler(enabled = editing && !state.saving) { editing = false }
     if (info != null) AlertDialog(onDismissRequest = { info = null },
@@ -46,7 +56,8 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
         onBack = if (editing) ({ editing = false }) else null,
         onRefresh = if (editing) null else viewModel::load, refreshing = state.loading, enabled = !state.saving && !isLoggingOut) {
         LazyColumn(
-            Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(20.dp),
+            Modifier.fillMaxSize().imePadding(), state = listState,
+            contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             item { FoundMessage(state.error); FoundMessage(state.notice, isError = false); FoundMessage(logoutError) }
@@ -91,24 +102,64 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                 }
             } else if (profile != null) {
                 item { Text("Identitas", style = MaterialTheme.typography.titleMedium) }
-                item { FoundFormField("Nama tampilan *", "Contoh: Rafa", name, { name = it }, enabled = enabled) }
-                item { FoundFormField("Kampus *", "Contoh: Universitas Brawijaya", campus, { campus = it }, enabled = enabled) }
+                item {
+                    FoundFormField("Nama tampilan *", "Contoh: Rafa", name,
+                        { name = it; clearError("name") }, enabled = enabled,
+                        errorText = errors["name"], isFirstError = firstError == "name",
+                        submitVersion = submitVersion)
+                }
+                item {
+                    FoundFormField("Kampus *", "Contoh: Universitas Brawijaya", campus,
+                        { campus = it; clearError("campus") }, enabled = enabled,
+                        errorText = errors["campus"], isFirstError = firstError == "campus",
+                        submitVersion = submitVersion)
+                }
                 item { Text("Kontak dan privasi", style = MaterialTheme.typography.titleMedium) }
-                item { FoundFormField("Email kontak (opsional)", "Contoh: rafa@example.com", email, { email = it }, enabled = enabled) }
-                item { FoundFormField("Telepon (opsional)", "Contoh: +628123456789", phone, { phone = it }, enabled = enabled) }
+                item {
+                    FoundFormField("Email kontak (opsional)", "Contoh: rafa@example.com", email,
+                        { email = it; clearError("email") }, enabled = enabled,
+                        errorText = errors["email"], isFirstError = firstError == "email",
+                        submitVersion = submitVersion)
+                }
+                item {
+                    FoundFormField("Telepon (opsional)", "Contoh: +628123456789", phone,
+                        { phone = it; clearError("phone") }, enabled = enabled,
+                        errorText = errors["phone"], isFirstError = firstError == "phone",
+                        submitVersion = submitVersion)
+                }
                 item {
                     Surface(shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Bagikan kontak pada laporan saya", Modifier.weight(1f))
-                                Switch(share, { share = it }, enabled = enabled)
+                                Switch(share, { share = it; clearError("share") }, enabled = enabled)
+                            }
+                            errors["share"]?.let {
+                                Text(it, color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall)
                             }
                             Text("Nama dan kampus terlihat oleh pengguna yang login melalui detail laporan. Email dan telepon hanya dibagikan jika opsi ini aktif. Email kontak tidak mengubah email login.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
-                item { GradientPrimaryButton("Simpan Profil", enabled = enabled, loading = state.saving,
-                    onClick = { viewModel.save(name, campus, email, phone, share) }) }
+                item {
+                    GradientPrimaryButton("Simpan Profil", enabled = enabled, loading = state.saving,
+                        onClick = {
+                            val found = ProfileValidator.validateFields(name, campus, email, phone, share)
+                            errors = found
+                            firstError = found.keys.firstOrNull()
+                            if (found.isNotEmpty()) {
+                                submitVersion++
+                                val position = when (firstError) {
+                                    "name" -> 2; "campus" -> 3; "email" -> 5
+                                    "phone" -> 6; "share" -> 7; else -> 2
+                                }
+                                scope.launch { listState.animateScrollToItem(position) }
+                            } else {
+                                viewModel.save(name, campus, email, phone, share)
+                            }
+                        })
+                }
             }
         }
     }
