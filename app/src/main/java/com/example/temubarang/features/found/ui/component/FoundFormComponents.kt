@@ -8,7 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.temubarang.ui.component.AppFilterChip
-import com.example.temubarang.ui.component.AppFormField
+import com.example.temubarang.ui.component.AppValidatedTextField
 import com.example.temubarang.ui.component.AppSectionCard
 import com.example.temubarang.ui.theme.AppSpacing
 
@@ -22,11 +22,15 @@ fun FoundFormField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     minLines: Int = 1,
-    hint: String? = null
+    hint: String? = null,
+    errorText: String? = null,
+    isFirstError: Boolean = false,
+    submitVersion: Int = 0
 ) {
-    AppFormField(value = value, onValueChange = onValueChange, label = label,
-        modifier = modifier, placeholder = example, supportingText = hint,
-        enabled = enabled, singleLine = minLines == 1, minLines = minLines)
+    AppValidatedTextField(value = value, onValueChange = onValueChange, label = label,
+        placeholder = example, supportingText = hint, errorText = errorText,
+        enabled = enabled, singleLine = minLines == 1, minLines = minLines,
+        isFirstError = isFirstError, submitVersion = submitVersion)
 }
 
 @Composable

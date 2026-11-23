@@ -43,7 +43,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.temubarang.ui.component.AppFormField
+import com.example.temubarang.ui.component.AppValidatedTextField
 import com.example.temubarang.ui.component.AppSectionCard
 import com.example.temubarang.ui.component.AppPhotoPicker
 import com.example.temubarang.ui.component.AppDatePickerField
@@ -94,12 +94,16 @@ fun FormTextField(
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     minLines: Int = 1,
-    imeAction: ImeAction = ImeAction.Next
+    imeAction: ImeAction = ImeAction.Next,
+    errorText: String? = null,
+    isFirstError: Boolean = false,
+    submitVersion: Int = 0
 ) {
-    AppFormField(
+    AppValidatedTextField(
         value = value, onValueChange = onValueChange, label = label,
-        modifier = modifier, supportingText = hint, enabled = enabled,
-        singleLine = singleLine, minLines = minLines, imeAction = imeAction
+        supportingText = hint, errorText = errorText, enabled = enabled,
+        singleLine = singleLine, minLines = minLines, imeAction = imeAction,
+        isFirstError = isFirstError, submitVersion = submitVersion
     )
 }
 
@@ -143,7 +147,8 @@ fun DatePickerField(
     value: String,
     onValueChange: (String) -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorText: String? = null
 ) {
-    AppDatePickerField(label, value, onValueChange, enabled, modifier)
+    AppDatePickerField(label, value, onValueChange, enabled, modifier, errorText)
 }

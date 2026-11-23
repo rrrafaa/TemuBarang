@@ -8,6 +8,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,7 +34,8 @@ fun AppDatePickerField(
     value: String,
     onValueChange: (String) -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorText: String? = null
 ) {
     var open by remember { mutableStateOf(false) }
     val display = remember(value) {
@@ -46,8 +48,13 @@ fun AppDatePickerField(
     Box(modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = display, onValueChange = {}, readOnly = true, enabled = enabled,
+            isError = errorText != null,
             label = { Text(label) },
-            supportingText = { Text("Ketuk untuk memilih tanggal") },
+            supportingText = {
+                Text(errorText ?: "Ketuk untuk memilih tanggal",
+                    color = if (errorText != null) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant)
+            },
             trailingIcon = { Text("📅") },
             shape = RoundedCornerShape(AppRadius.field),
             modifier = Modifier.fillMaxWidth()

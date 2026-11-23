@@ -66,7 +66,7 @@ fun AppPhotoPicker(
             TextButton(onClick = onRemove, enabled = enabled) { Text("Batalkan pilihan foto") }
         }
         if (showError) {
-            Text("Foto barang wajib diunggah.", color = MaterialTheme.colorScheme.error,
+            Text("Silakan tambahkan foto barang.", color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
         }
         if (!message.isNullOrBlank()) {

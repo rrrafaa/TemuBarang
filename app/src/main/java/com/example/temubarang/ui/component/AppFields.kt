@@ -1,5 +1,8 @@
 package com.example.temubarang.ui.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -20,11 +23,15 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -71,6 +78,7 @@ fun AppFormField(
     modifier: Modifier = Modifier,
     placeholder: String? = null,
     supportingText: String? = null,
+    errorText: String? = null,
     enabled: Boolean = true,
     singleLine: Boolean = true,
     minLines: Int = 1,
@@ -86,8 +94,11 @@ fun AppFormField(
         modifier = modifier.fillMaxWidth(),
         label = { Text(label) },
         placeholder = placeholder?.let { example -> { Text(example) } },
-        supportingText = supportingText?.let { message -> { Text(message) } },
-        enabled = enabled, isError = isError,
+        supportingText = (errorText ?: supportingText)?.let { message -> {
+            Text(message, color = if (errorText != null) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant)
+        } },
+        enabled = enabled, isError = isError || errorText != null,
         singleLine = singleLine, minLines = minLines,
         keyboardOptions = KeyboardOptions(
             capitalization = capitalization, keyboardType = keyboardType, imeAction = imeAction
@@ -99,6 +110,54 @@ fun AppFormField(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface
         )
+    )
+}
+
+
+/** Scroll menuju error pertama; fokus hanya diminta pada input teks. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AppValidationAnchor(
+    isFirstError: Boolean,
+    submitVersion: Int,
+    content: @Composable () -> Unit
+) {
+    val bring = remember { BringIntoViewRequester() }
+    LaunchedEffect(isFirstError, submitVersion) {
+        if (isFirstError && submitVersion > 0) bring.bringIntoView()
+    }
+    Box(Modifier.fillMaxWidth().bringIntoViewRequester(bring)) { content() }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AppValidatedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String? = null,
+    supportingText: String? = null,
+    errorText: String? = null,
+    enabled: Boolean = true,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    imeAction: ImeAction = ImeAction.Next,
+    isFirstError: Boolean = false,
+    submitVersion: Int = 0
+) {
+    val bring = remember { BringIntoViewRequester() }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(isFirstError, submitVersion) {
+        if (isFirstError && submitVersion > 0) {
+            bring.bringIntoView()
+            focus.requestFocus()
+        }
+    }
+    AppFormField(
+        value = value, onValueChange = onValueChange, label = label,
+        placeholder = placeholder, supportingText = supportingText, errorText = errorText,
+        enabled = enabled, singleLine = singleLine, minLines = minLines, imeAction = imeAction,
+        modifier = Modifier.bringIntoViewRequester(bring).focusRequester(focus)
     )
 }
 
@@ -163,7 +222,8 @@ fun AppDropdownField(
     options: Map<String, String>,
     selected: String,
     onSelect: (String) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    errorText: String? = null
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
@@ -186,6 +246,10 @@ fun AppDropdownField(
                     })
                 }
             }
+        }
+        if (errorText != null) {
+            Text(errorText, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error)
         }
     }
 }
