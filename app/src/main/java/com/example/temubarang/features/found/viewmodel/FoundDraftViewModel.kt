@@ -14,7 +14,7 @@ import java.time.LocalDate
  */
 class FoundDraftViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     val campus = savedStateHandle.getStateFlow("found_draft.campus", "")
-    val category = savedStateHandle.getStateFlow("found_draft.category", "other")
+    val category = savedStateHandle.getStateFlow("found_draft.category", "")
     val custodyType = savedStateHandle.getStateFlow("found_draft.custody_type", "reporter")
     val pickupLocation = savedStateHandle.getStateFlow("found_draft.pickup_location", "")
     val pickupNotes = savedStateHandle.getStateFlow("found_draft.pickup_notes", "")
@@ -95,7 +95,7 @@ class FoundDraftViewModel(private val savedStateHandle: SavedStateHandle) : View
 
     /** Hapus draft hanya setelah database benar-benar berhasil menyimpan laporan. */
     fun clearAfterSuccessfulSave() {
-        changeCampus(""); changeCategory("other"); changeCustodyType("reporter")
+        changeCampus(""); changeCategory(""); changeCustodyType("reporter")
         changePickupLocation(""); changePickupNotes("")
         savedStateHandle["found_draft.title"] = ""
         savedStateHandle["found_draft.description"] = ""
