@@ -23,6 +23,19 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
     private val _uiState = MutableStateFlow(LostUiState())
     val uiState: StateFlow<LostUiState> = _uiState.asStateFlow()
 
+    fun loadDetail(id: String) {
+        viewModelScope.launch {
+            try {
+                val item = repository.get(id)
+                _uiState.update { it.copy(items = it.items.filterNot { report -> report.id == id } + item) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = LostErrorMapper.describe(e)) }
+            }
+        }
+    }
+
     fun ownsReport(id: String): Boolean {
         val userId = repository.signedInUserId() ?: return false
         return _uiState.value.items.any { it.id == id && it.reporterId == userId }

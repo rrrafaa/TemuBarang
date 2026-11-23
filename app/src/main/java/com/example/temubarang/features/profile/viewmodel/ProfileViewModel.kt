@@ -22,7 +22,10 @@ data class ProfileUiState(
 class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() {
     private val _state = MutableStateFlow(ProfileUiState())
     val state = _state.asStateFlow()
+    val accountEmail: String? get() = repository.accountEmail()
     init { load() }
+
+    fun consumeSaveNotice() = _state.update { it.copy(notice = null) }
 
     fun load() {
         if (_state.value.saving) return

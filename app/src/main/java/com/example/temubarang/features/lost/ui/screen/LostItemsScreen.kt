@@ -36,9 +36,10 @@ fun LostItemsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
+    var onlyMine by rememberSaveable { mutableStateOf(false) }
     val visibleItems = state.items.filter { item ->
-        query.isBlank() || listOf(item.title, item.description, item.lastSeenLocation)
-            .any { it.contains(query.trim(), ignoreCase = true) }
+        (!onlyMine || viewModel.ownsReport(item.id)) && (query.isBlank() || listOf(item.title, item.description, item.lastSeenLocation)
+            .any { it.contains(query.trim(), ignoreCase = true) })
     }
     LaunchedEffect(Unit) { viewModel.refresh() }
 
@@ -55,6 +56,12 @@ fun LostItemsScreen(
                         placeholder = "Cari nama atau lokasi barang hilang")
                 }
                 item {
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        com.example.temubarang.ui.component.AppFilterChip(!onlyMine, { onlyMine = false }, label = "Semua Laporan")
+                        com.example.temubarang.ui.component.AppFilterChip(onlyMine, { onlyMine = true }, label = "Laporan Saya")
+                    }
+                }
+                item {
                     LostMessage(state.error)
                     LostMessage(state.notice, isError = false)
                 }
@@ -68,7 +75,7 @@ fun LostItemsScreen(
                 } else {
                     item { Text("${visibleItems.size} laporan", style = MaterialTheme.typography.labelMedium) }
                     items(visibleItems, key = { it.id }) { item ->
-                        LostItemCard(item, viewModel.photoUrl(item.imagePath)) {
+                        LostItemCard(item, viewModel.photoUrl(item.imagePath), viewModel.ownsReport(item.id)) {
                             viewModel.clearMessages()
                             onDetail(item.id)
                         }

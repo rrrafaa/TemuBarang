@@ -12,6 +12,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 class ProfileRepository(private val client: SupabaseClient) {
+    fun accountEmail(): String? = client.auth.currentUserOrNull()?.email
+
     private fun userId() = checkNotNull(client.auth.currentUserOrNull()?.id) { "Silakan login kembali." }
 
     suspend fun load(): Profile = withContext(Dispatchers.IO) {

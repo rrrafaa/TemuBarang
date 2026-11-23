@@ -59,9 +59,10 @@ import com.example.temubarang.ui.theme.BrandNavy
 fun HomeScreen(
     viewModel: HomeViewModel,
     userName: String,
-    onOpenLost: () -> Unit,
+    onLostDetail: (String) -> Unit,
     onOpenFound: () -> Unit,
     onFoundDetail: (String) -> Unit,
+    onNotifications: () -> Unit,
     errorMessage: String? = null
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -78,6 +79,9 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                androidx.compose.material3.TextButton(onClick = onNotifications) { Text("Notifikasi") }
+            }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
                     val hour = java.time.LocalTime.now().hour
@@ -125,7 +129,7 @@ fun HomeScreen(
                 item { Text("${visibleItems.size} laporan", style = MaterialTheme.typography.labelMedium, color = BrandMuted) }
                 items(visibleItems, key = { it.key }) { item ->
                     ReportPreviewCard(item, viewModel.photoUrl(item.imagePath)) {
-                        if (item.type == ReportType.FOUND) onFoundDetail(item.id) else onOpenLost()
+                        if (item.type == ReportType.FOUND) onFoundDetail(item.id) else onLostDetail(item.id)
                     }
                 }
             }

@@ -30,6 +30,7 @@ fun FoundItemsScreen(
     onDetail: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    var showRecovery by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var onlyOpen by rememberSaveable { mutableStateOf(true) }
     var onlyMine by rememberSaveable { mutableStateOf(false) }
@@ -38,6 +39,18 @@ fun FoundItemsScreen(
 
     AppPage("Barang Ditemukan", onBack = onBack, onRefresh = viewModel::refresh, refreshing = state.isLoading) {
         Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppFilterChip(!showRecovery, { showRecovery = false }, label = "Laporan Publik")
+                AppFilterChip(showRecovery, { showRecovery = true }, label = "Konfirmasi Temuan")
+            }
+            if (showRecovery) {
+                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Temuan yang Saya Ajukan", style = MaterialTheme.typography.titleMedium)
+                    Text("Temuan atas Laporan Saya", style = MaterialTheme.typography.titleMedium)
+                    Text("Riwayat privat akan tersedia setelah penyimpanan pengajuan terhubung.")
+                }
+                return@Column
+            }
             // The list owns scrolling; the primary action stays above the parent navbar.
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -51,7 +64,7 @@ fun FoundItemsScreen(
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AppFilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = "Tersedia")
-                        AppFilterChip(onlyMine, { onlyMine = !onlyMine }, label = "Laporan saya")
+                        AppFilterChip(onlyMine, { onlyMine = !onlyMine }, label = "Laporan Saya")
                     }
                 }
                 item { FoundMessage(state.error); FoundMessage(state.notice, isError = false) }
@@ -60,7 +73,7 @@ fun FoundItemsScreen(
                 else {
                     item { Text("${visible.size} laporan", style = MaterialTheme.typography.labelMedium) }
                     items(visible, key = { it.id }) { item ->
-                        FoundItemCard(item, viewModel.photoUrl(item.imagePath)) {
+                        FoundItemCard(item, viewModel.photoUrl(item.imagePath), item.reporterId == viewModel.userId) {
                             viewModel.clearMessage()
                             onDetail(item.id)
                         }

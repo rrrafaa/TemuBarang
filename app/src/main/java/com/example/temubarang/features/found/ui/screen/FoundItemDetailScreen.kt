@@ -51,6 +51,7 @@ fun FoundItemDetailScreen(
     itemId: String,
     onBack: () -> Unit,
     onManaged: () -> Unit,
+    onClaim: (String) -> Unit,
     onEdit: (String) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
@@ -150,6 +151,9 @@ fun FoundItemDetailScreen(
                         Text("Pelapor belum melengkapi profil.")
                     }
                     FoundMessage(contactError)
+                }
+                if (viewModel.userId != null && viewModel.userId != item.reporterId && item.status == "open") {
+                    GradientPrimaryButton("Ajukan Klaim", onClick = { onClaim(item.id) })
                 }
                 if (canManage) {
                     GradientPrimaryButton("Edit Laporan / Ubah Status", enabled = !state.isSaving,

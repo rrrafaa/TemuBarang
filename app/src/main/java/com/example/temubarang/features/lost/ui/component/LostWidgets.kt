@@ -68,7 +68,7 @@ fun LostPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LostItemCard(item: LostItem, photoUrl: String?, onClick: () -> Unit) {
+fun LostItemCard(item: LostItem, photoUrl: String?, isMine: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
@@ -85,6 +85,7 @@ fun LostItemCard(item: LostItem, photoUrl: String?, onClick: () -> Unit) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
                 Text(item.lastSeenLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Hilang: ${item.lostAt}", style = MaterialTheme.typography.bodySmall)
+                if (isMine) Text("Milik Saya", style = MaterialTheme.typography.labelSmall)
                 AppStatusBadge(item.status.lostStatusLabel(), positive = item.status == "found")
             }
         }

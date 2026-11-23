@@ -44,6 +44,11 @@ class LostItemRepository(
         }.decodeList<LostItem>()
     }
 
+    suspend fun get(id: String): LostItem = withContext(Dispatchers.IO) {
+        requireUserId()
+        client.from(TABLE).select { filter { eq("id", id) } }.decodeSingle<LostItem>()
+    }
+
     suspend fun create(
         title: String,
         description: String,

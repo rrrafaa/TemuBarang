@@ -154,9 +154,10 @@ fun AuthenticatedNavigation(
                 HomeScreen(
                     viewModel = homeVm,
                     userName = profileState.profile?.displayName.orEmpty(),
-                    onOpenLost = { openMainTab(AppRoute.LOST) },
+                    onLostDetail = { navController.navigate("${AppRoute.LOST_DETAIL}/$it") },
                     onOpenFound = { openMainTab(AppRoute.FOUND) },
                     onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
+                    onNotifications = { navController.navigate("notifications") },
                     errorMessage = authState.error
                 )
             }
@@ -190,6 +191,7 @@ fun AuthenticatedNavigation(
                     itemId = id,
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") },
+                    onRecovery = { navController.navigate("recovery/new/$it") },
                     onStatusUpdated = { finishReportAction(AppRoute.LOST) }
                 )
             }
@@ -233,6 +235,7 @@ fun AuthenticatedNavigation(
                 FoundItemDetailScreen(
                     viewModel = foundVm, itemId = id,
                     onBack = { navController.popBackStack() },
+                    onClaim = { navController.navigate("${AppRoute.CLAIMS}/$it") },
                     onManaged = { finishReportAction(AppRoute.FOUND) },
                     onEdit = { navController.navigate("${AppRoute.FOUND_EDIT}/$it") }
                 )
@@ -250,6 +253,20 @@ fun AuthenticatedNavigation(
             }
             composable(AppRoute.PROFILE) {
                 ProfileScreen(profileVm, onLogout, authState.isSubmitting, authState.error)
+            }
+            composable("${AppRoute.CLAIMS}/{foundItemId}") {
+                ClaimsScreen(onBack = { navController.popBackStack() })
+            }
+            composable("notifications") {
+                com.example.temubarang.ui.component.AppPage("Notifikasi", onBack = { navController.popBackStack() }) {
+                    androidx.compose.material3.Text("Pusat notifikasi belum terhubung ke riwayat pemberitahuan.")
+                }
+            }
+            composable("recovery/new/{lostItemId}") { entry ->
+                val id = entry.arguments?.getString("lostItemId") ?: return@composable
+                com.example.temubarang.features.lost.ui.screen.RecoveryDraftScreen(lostVm, id) {
+                    navController.popBackStack()
+                }
             }
             composable(AppRoute.CLAIMS) {
                 ClaimsScreen(onBack = { navController.navigate(AppRoute.HOME) {

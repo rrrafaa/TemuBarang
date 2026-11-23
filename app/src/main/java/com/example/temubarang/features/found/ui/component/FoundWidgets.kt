@@ -70,7 +70,7 @@ fun FoundPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
+fun FoundItemCard(item: FoundItem, photoUrl: String?, isMine: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
@@ -84,6 +84,7 @@ fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
         ) {
             FoundPhoto(photoUrl, Modifier.size(AppSizes.previewPhoto))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (isMine) Text("Milik Saya", style = MaterialTheme.typography.labelSmall)
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
                 if (item.campus.isNotBlank()) Text(item.campus, style = MaterialTheme.typography.labelMedium)
                 Text(item.foundLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)

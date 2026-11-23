@@ -37,6 +37,7 @@ fun LostItemDetailScreen(
     itemId: String,
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
+    onRecovery: (String) -> Unit,
     onStatusUpdated: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -44,7 +45,7 @@ fun LostItemDetailScreen(
     val isOwner = viewModel.ownsReport(itemId)
     var confirmDelete by rememberSaveable(itemId) { mutableStateOf(false) }
 
-    LaunchedEffect(itemId) { if (item == null) viewModel.refresh() }
+    LaunchedEffect(itemId) { viewModel.loadDetail(itemId) }
 
     AppPage("Detail Barang Hilang", onBack = onBack,
         onRefresh = viewModel::refresh, refreshing = state.isLoading, enabled = !state.isSaving) {
@@ -70,6 +71,9 @@ fun LostItemDetailScreen(
                 AppSectionCard("Pelapor") {
                     Text(if (isOwner) "Laporan ini dibuat dari akunmu." else "Laporan ini dibuat oleh pengguna lain.",
                         style = MaterialTheme.typography.bodyMedium)
+                }
+                if (!isOwner && item.status == "open") {
+                    GradientPrimaryButton("Saya Menemukan Barang Ini", onClick = { onRecovery(item.id) })
                 }
                 if (isOwner) {
                     if (item.status != "found") {

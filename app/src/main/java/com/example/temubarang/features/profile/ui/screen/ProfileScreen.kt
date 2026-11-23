@@ -26,7 +26,17 @@ import com.example.temubarang.ui.theme.BrandIndigo
 fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOut: Boolean, logoutError: String?) {
     val state by viewModel.state.collectAsState()
     val profile = state.profile
-    var editing by rememberSaveable { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf("main") }
+    val editing = page == "edit"
+    var previousPage by rememberSaveable { mutableStateOf("detail") }
+    var successMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.notice) {
+        state.notice?.let {
+            page = "main"
+            successMessage = "Profil berhasil diperbarui."
+            viewModel.consumeSaveNotice()
+        }
+    }
     var info by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable(profile?.id) { mutableStateOf(profile?.displayName.orEmpty()) }
     var campus by rememberSaveable(profile?.id) { mutableStateOf(profile?.campus.orEmpty()) }
@@ -43,26 +53,36 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
     fun edit() {
         name = profile?.displayName.orEmpty(); campus = profile?.campus.orEmpty()
         email = profile?.contactEmail.orEmpty(); phone = profile?.phone.orEmpty()
-        share = profile?.shareContact ?: false; editing = true
+        share = profile?.shareContact ?: false
+        previousPage = page
+        page = "edit"
+        successMessage = null
         errors = emptyMap(); firstError = null
     }
-    androidx.activity.compose.BackHandler(enabled = editing && !state.saving) { editing = false }
+    fun goBack() { page = if (editing) previousPage else "main" }
+    androidx.activity.compose.BackHandler(enabled = page != "main") {
+        if (!state.saving) goBack()
+    }
     if (info != null) AlertDialog(onDismissRequest = { info = null },
         title = { Text(if (info == "about") "Tentang TemuBarang" else "Panduan Pengambilan") },
         text = { Text(if (info == "about") "TemuBarang membantu warga kampus melaporkan barang hilang dan ditemukan, serta mengoordinasikan pengembalian kepada pemiliknya."
             else "Baca lokasi dan petunjuk pengambilan pada detail barang. Hubungi pelapor jika kontak dibagikan, lalu siapkan bukti kepemilikan. Jangan membagikan ciri rahasia barang di laporan publik.") },
         confirmButton = { TextButton(onClick = { info = null }) { Text("Mengerti") } })
-    AppPage(if (editing) "Kelola Profil" else "Profil Saya",
-        onBack = if (editing) ({ editing = false }) else null,
+    AppPage(when (page) {
+        "edit" -> "Edit Profil"
+        "detail" -> "Detail Profil"
+        "contact" -> "Kontak dan Privasi"
+        else -> "Profil Saya"
+    }, onBack = if (page != "main") ({ goBack() }) else null,
         onRefresh = if (editing) null else viewModel::load, refreshing = state.loading, enabled = !state.saving && !isLoggingOut) {
         LazyColumn(
             Modifier.fillMaxSize().imePadding(), state = listState,
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            item { FoundMessage(state.error); FoundMessage(state.notice, isError = false); FoundMessage(logoutError) }
+            item { FoundMessage(state.error); FoundMessage(successMessage, isError = false); FoundMessage(logoutError) }
             if (state.loading) item { CircularProgressIndicator() }
-            if (!editing) {
+            if (page == "main") {
                 item {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
                         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically,
@@ -83,9 +103,9 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                 }
                 item {
                     ProfileGroup("Akun") {
-                        ProfileMenuRow("Kelola profil", "Nama tampilan dan kampus", R.drawable.ic_user_round_duotone, enabled) { edit() }
+                        ProfileMenuRow("Kelola profil", "Nama tampilan dan kampus", R.drawable.ic_user_round_duotone, enabled) { page = "detail" }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                        ProfileMenuRow("Kontak dan privasi", if (profile?.shareContact == true) "Kontak dibagikan pada laporan" else "Kontak tidak dibagikan", R.drawable.ic_mail_duotone, enabled) { edit() }
+                        ProfileMenuRow("Kontak dan privasi", if (profile?.shareContact == true) "Kontak dibagikan pada laporan" else "Kontak tidak dibagikan", R.drawable.ic_mail_duotone, enabled) { page = "contact" }
                     }
                 }
                 item {
@@ -100,8 +120,25 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                         Text(if (isLoggingOut) "Sedang keluar…" else "Keluar Akun", color = MaterialTheme.colorScheme.error)
                     }
                 }
+            } else if (!editing && profile != null) {
+                if (page == "detail") item {
+                    AppSectionCard("Identitas Kampus") {
+                        AppDetailRow("Nama", profile.displayName.ifBlank { "Belum diisi" })
+                        AppDetailRow("Universitas", profile.campus.ifBlank { "Belum diisi" })
+                        CampusAffiliationPreview()
+                    }
+                }
+                item {
+                    AppSectionCard("Kontak dan Privasi") {
+                        AppDetailRow("Email akun", viewModel.accountEmail.orEmpty().ifBlank { "Tidak tersedia" })
+                        AppDetailRow("Email kontak", profile.contactEmail.ifBlank { "Belum diisi" })
+                        AppDetailRow("Telepon", profile.phone.ifBlank { "Belum diisi" })
+                        AppDetailRow("Berbagi kontak", if (profile.shareContact) "Aktif" else "Nonaktif")
+                    }
+                }
+                item { GradientPrimaryButton("Edit Profil", enabled = enabled, onClick = { edit() }) }
             } else if (profile != null) {
-                item { Text("Identitas", style = MaterialTheme.typography.titleMedium) }
+                item { Text("Identitas Kampus", style = MaterialTheme.typography.titleMedium) }
                 item {
                     FoundFormField("Nama tampilan *", "Contoh: Rafa", name,
                         { name = it; clearError("name") }, enabled = enabled,
@@ -109,10 +146,13 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                         submitVersion = submitVersion)
                 }
                 item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FoundFormField("Kampus *", "Contoh: Universitas Brawijaya", campus,
                         { campus = it; clearError("campus") }, enabled = enabled,
                         errorText = errors["campus"], isFirstError = firstError == "campus",
                         submitVersion = submitVersion)
+                        CampusAffiliationPreview()
+                    }
                 }
                 item { Text("Kontak dan privasi", style = MaterialTheme.typography.titleMedium) }
                 item {
@@ -163,6 +203,13 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
             }
         }
     }
+}
+
+@Composable
+private fun CampusAffiliationPreview() {
+    AppDetailRow("Jenis pengguna", "Belum tersedia")
+    AppDetailRow("Fakultas atau unit", "Belum tersedia")
+    AppDetailRow("Angkatan mahasiswa", "Belum tersedia")
 }
 
 @Composable
