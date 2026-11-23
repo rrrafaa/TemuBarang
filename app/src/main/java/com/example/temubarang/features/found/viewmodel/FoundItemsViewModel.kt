@@ -90,8 +90,11 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
-                repository.create(title, description, location, date, photo, handover)
-                _uiState.update { it.copy(notice = "Laporan berhasil ditambahkan.", revision = it.revision + 1) }
+                val created = repository.create(title, description, location, date, photo, handover)
+                _uiState.update { state -> state.copy(
+                    items = (listOf(created) + state.items).distinctBy { it.id },
+                    notice = "Laporan berhasil ditambahkan.", revision = state.revision + 1
+                ) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {
@@ -121,19 +124,12 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
-                repository.update(id, title, description, location, date, status, handover)
-                _uiState.update { state ->
-                    state.copy(
-                        notice = "Laporan berhasil diperbarui.", revision = state.revision + 1,
-                        detail = state.detail?.takeIf { it.id == id }?.copy(
-                            title = title.trim(), description = description.trim(),
-                            foundLocation = location.trim(), foundAt = date.trim(), status = status,
-                            campus = handover.campus.trim(), category = handover.category,
-                            custodyType = handover.custodyType, pickupLocation = handover.pickupLocation.trim(),
-                            pickupNotes = handover.pickupNotes.trim()
-                        ) ?: state.detail
-                    )
-                }
+                val updated = repository.update(id, title, description, location, date, status, handover)
+                _uiState.update { state -> state.copy(
+                    items = state.items.map { if (it.id == id) updated else it },
+                    detail = updated,
+                    notice = "Laporan berhasil diperbarui.", revision = state.revision + 1
+                ) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {

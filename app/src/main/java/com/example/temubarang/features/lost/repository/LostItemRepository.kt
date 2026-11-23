@@ -68,12 +68,12 @@ class LostItemRepository(
             check(inserted != null) {
                 "Laporan belum tersimpan. Periksa izin pengguna dan koneksi database."
             }
+            inserted
         } catch (e: Exception) {
             // Jangan meninggalkan foto yatim bila baris database gagal disimpan.
             if (path != null) runCatching { client.storage.from(BUCKET).delete(path) }
             throw e
         }
-        Unit
     }
 
     suspend fun updateStatus(id: String, status: String) = withContext(Dispatchers.IO) {
@@ -87,55 +87,41 @@ class LostItemRepository(
             select()
         }.decodeList<LostItem>().singleOrNull()
         check(updated != null) { "Status tidak berubah. Laporan mungkin sudah dihapus atau akses ditolak." }
-        Unit
+        updated
     }
 
     suspend fun update(
-        id: String,
-        title: String,
-        description: String,
-        location: String,
-        date: String,
-        newImageUri: Uri?,
-        oldImagePath: String?
-    ) = withContext(Dispatchers.IO) {
+        id: String, title: String, description: String,
+        location: String, date: String, newImageUri: Uri?, oldImagePath: String?
+    ): LostItem = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         if (newImageUri == null) {
-            val updated = client.from(TABLE).update(
+            client.from(TABLE).update(
                 LostItemChanges(title.trim(), description.trim(), location.trim(), date.trim())
             ) {
-                filter {
-                    eq("id", id)
-                    eq("reporter_id", userId)
-                }
+                filter { eq("id", id); eq("reporter_id", userId) }
                 select()
             }.decodeList<LostItem>().singleOrNull()
-            check(updated != null) { "Perubahan laporan tidak tersimpan. Periksa akses laporan." }
+                ?: throw IllegalStateException("Perubahan laporan tidak tersimpan. Periksa akses laporan.")
         } else {
             val newPath = uploadPhoto(userId, newImageUri)
-            try {
-                val updated = client.from(TABLE).update(
-                    LostItemChangesWithPhoto(
-                        title.trim(), description.trim(), location.trim(), date.trim(), newPath
-                    )
+            val updated = try {
+                client.from(TABLE).update(
+                    LostItemChangesWithPhoto(title.trim(), description.trim(), location.trim(), date.trim(), newPath)
                 ) {
-                    filter {
-                        eq("id", id)
-                        eq("reporter_id", userId)
-                    }
+                    filter { eq("id", id); eq("reporter_id", userId) }
                     select()
                 }.decodeList<LostItem>().singleOrNull()
-                check(updated != null) { "Perubahan foto belum tersimpan. Periksa akses laporan." }
+                    ?: throw IllegalStateException("Perubahan foto belum tersimpan. Periksa akses laporan.")
             } catch (e: Exception) {
                 runCatching { client.storage.from(BUCKET).delete(newPath) }
                 throw e
             }
-            // Foto lama dibuang setelah database berhasil memakai foto baru.
             if (!oldImagePath.isNullOrBlank()) {
                 runCatching { client.storage.from(BUCKET).delete(oldImagePath) }
             }
+            updated
         }
-        Unit
     }
 
     suspend fun delete(id: String, imagePath: String?) = withContext(Dispatchers.IO) {
@@ -149,8 +135,9 @@ class LostItemRepository(
         }.decodeList<LostItem>().singleOrNull()
         check(deleted != null) { "Laporan tidak terhapus. Periksa akses dan status laporan." }
 
-        if (!imagePath.isNullOrBlank()) {
-            runCatching { client.storage.from(BUCKET).delete(imagePath) }
+        val savedPhotoPath = deleted.imagePath?.takeIf { it.startsWith("$userId/lost/") }
+        if (savedPhotoPath != null) {
+            runCatching { client.storage.from(BUCKET).delete(savedPhotoPath) }
         }
         Unit
     }

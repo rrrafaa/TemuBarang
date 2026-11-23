@@ -74,6 +74,7 @@ class FoundItemRepository(
             check(inserted != null) {
                 "Laporan belum tersimpan. Periksa izin pengguna dan koneksi database."
             }
+            inserted
         } catch (e: Exception) {
             if (path != null) {
                 try { client.storage.from(BUCKET).delete(listOf(path)) }
@@ -83,7 +84,6 @@ class FoundItemRepository(
             }
             throw e
         }
-        Unit
     }
 
     suspend fun update(
@@ -107,7 +107,7 @@ class FoundItemRepository(
             select()
         }.decodeList<FoundItem>().singleOrNull()
         check(updated != null) { "Laporan tidak diperbarui. Data sudah dihapus atau izin edit tidak tersedia." }
-        Unit
+        updated
     }
 
     /** RLS tetap wajib; filter pemilik dan RETURNING mencegah sukses palsu (0 baris). */

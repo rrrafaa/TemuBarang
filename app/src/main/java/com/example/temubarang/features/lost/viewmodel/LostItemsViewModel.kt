@@ -62,8 +62,11 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
             try {
-                repository.create(title, description, location, date, imageUri)
-                _uiState.update { it.copy(notice = "Laporan barang hilang berhasil dikirim.") }
+                val created = repository.create(title, description, location, date, imageUri)
+                _uiState.update { s -> s.copy(
+                    items = (listOf(created) + s.items).distinctBy { it.id },
+                    notice = "Laporan barang hilang berhasil dikirim."
+                ) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {
@@ -96,14 +99,16 @@ class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel
             return
         }
         runSaving(notice = "Laporan berhasil diperbarui.", onSuccess = onSuccess) {
-            repository.update(id, title, description, location, date, newImageUri, current?.imagePath)
+            val saved = repository.update(id, title, description, location, date, newImageUri, current?.imagePath)
+            _uiState.update { s -> s.copy(items = s.items.map { if (it.id == id) saved else it }) }
             refresh()
         }
     }
 
     fun updateStatus(id: String, status: String, onSuccess: () -> Unit = {}) {
         runSaving(notice = "Status laporan diperbarui.", onSuccess = onSuccess) {
-            repository.updateStatus(id, status)
+            val saved = repository.updateStatus(id, status)
+            _uiState.update { s -> s.copy(items = s.items.map { if (it.id == id) saved else it }) }
             refresh()
         }
     }
