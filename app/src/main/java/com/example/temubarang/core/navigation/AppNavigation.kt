@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -98,6 +99,25 @@ fun AuthenticatedNavigation(
     }
     LaunchedEffect(foundState.notice) {
         foundState.notice?.let { snackbarHostState.showSnackbar(it) }
+    }
+    // Kesalahan operasi juga terlihat setelah perubahan fokus atau saat pengguna tetap di form.
+    LaunchedEffect(lostState.error) {
+        lostState.error?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+        }
+    }
+    LaunchedEffect(foundState.error) {
+        foundState.error?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+        }
+    }
+    LaunchedEffect(profileState.notice) {
+        profileState.notice?.let { snackbarHostState.showSnackbar(it) }
+    }
+    LaunchedEffect(profileState.error) {
+        profileState.error?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+        }
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
