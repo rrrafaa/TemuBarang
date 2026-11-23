@@ -54,10 +54,23 @@ Output APK debug ada di `app/build/outputs/apk/debug/app-debug.apk` apabila buil
 3. Login dengan akun pengujian yang memiliki akses ke Supabase proyek tim.
 4. Periksa langkah uji di bawah ini.
 
-## 5. Checklist regresi UI/UX
+## 5. Migrasi Supabase yang diperlukan untuk foto Barang Hilang
+
+Proyek target: `hjgfcsdyifeqbgwiqbtx`. Pastikan URL di `local.properties` mengarah ke proyek TemuBarang tersebut dan jangan gunakan service-role key pada aplikasi.
+
+**Penting:** GitHub hanya menyimpan file SQL; commit **tidak otomatis menjalankan migrasi** ke Supabase.
+
+1. Buka dashboard Supabase proyek TemuBarang → SQL Editor.
+2. Periksa apakah bucket `temubarang-images`, tabel `lost_items` / `found_items`, dan kebijakan Storage sudah ada. Contoh kueri tanpa perubahan data tersedia di `supabase/verification/temubarang_read_only_checks.sql`.
+3. Jika migrasi pendahulu `202611160002_found_storage.sql` sudah diterapkan dan kebijakan `temubarang_lost_insert_self` belum ada, jalankan `supabase/migrations/202611230001_lost_storage_permissions.sql` sekali pada proyek TemuBarang. Jangan menjalankan migrasi pendahulu ulang tanpa memeriksa skema karena banyak perintah di dalamnya bersifat non-idempoten.
+4. Verifikasi kembali hasilnya dengan kueri baca-saja dan uji pembuatan laporan dengan foto dari akun pengujian.
+
+Jika SQL Editor menolak pembuatan policy, jangan nonaktifkan RLS dan jangan memasukkan kunci rahasia ke Android. Pastikan pengguna database berwenang dan cek kebijakan yang sudah ada. Jika proyek belum tersambung ke integrasi Supabase, sambungkan proyek yang benar melalui koneksi Supabase sebelum menjalankan perubahan dari ChatGPT.
+
+## 6. Checklist regresi UI/UX
 
 - **Navigasi:** Dari Beranda ketuk **Saya Menemukan Barang**. Pastikan membuka daftar **Barang Ditemukan**, tab Ditemukan aktif, lalu pindah ke Beranda/Hilang/Klaim/Profil dan kembali tanpa tab mati.
-- **Navbar:** Pastikan latar navbar transparan, ikon/label jelas, dan seluruh area sentuh tab bekerja.
+- **Navbar:** Pastikan desain navbar asli (bidang solid, lekukan, ikon aktif terangkat) kembali tampil dan seluruh tab dapat diakses.
 - **Beranda:** Urutan Hi nama pengguna → salam waktu → search → tombol temuan → filter → feed. Tautan **Lihat Hilang** tidak ada.
 - **Cari dan filter:** Uji query cocok/tidak cocok pada Beranda, Hilang, dan Ditemukan. Uji filter **Semua/Hilang/Ditemukan**, **Tersedia**, dan **Laporan saya**.
 - **Form:** Tambah/Edit Hilang dan Ditemukan, back pada header, pilih tanggal melalui kalender, gunakan kamera/galeri, simpan, dan periksa pesan validasi.
