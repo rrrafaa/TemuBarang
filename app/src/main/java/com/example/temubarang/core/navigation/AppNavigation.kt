@@ -7,10 +7,6 @@ import android.app.Application
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -92,33 +88,8 @@ fun AuthenticatedNavigation(
     val lostVm: LostItemsViewModel = viewModel(key = "lost:${authState.userId}",
         factory = LostItemsViewModel.factory(application))
     val lostState by lostVm.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    // Snackbar berada di luar NavHost sehingga tetap terlihat setelah navigasi.
-    LaunchedEffect(lostState.notice) {
-        lostState.notice?.let { snackbarHostState.showSnackbar(it) }
-    }
-    LaunchedEffect(foundState.notice) {
-        foundState.notice?.let { snackbarHostState.showSnackbar(it) }
-    }
-    // Kesalahan operasi juga terlihat setelah perubahan fokus atau saat pengguna tetap di form.
-    LaunchedEffect(lostState.error) {
-        lostState.error?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
-        }
-    }
-    LaunchedEffect(foundState.error) {
-        foundState.error?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
-        }
-    }
-    LaunchedEffect(profileState.notice) {
-        profileState.notice?.let { snackbarHostState.showSnackbar(it) }
-    }
-    LaunchedEffect(profileState.error) {
-        profileState.error?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
-        }
-    }
+    // Keberhasilan dan kesalahan laporan ditampilkan sekali melalui banner pada screen.
+    // State di ViewModel tetap bertahan ketika berpindah dari form ke halaman daftar.
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
@@ -167,7 +138,6 @@ fun AuthenticatedNavigation(
 
     Scaffold(
         containerColor = BrandBackground,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onMainTab) {

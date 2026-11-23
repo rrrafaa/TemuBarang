@@ -56,6 +56,7 @@ class FoundItemRepository(
         title: String, description: String, location: String, date: String, imageUri: Uri?, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
+        require(imageUri != null) { "Silakan tambahkan foto barang." }
         // Sesuai RLS Storage: <auth.uid()>/found/<uuid>.<ext>
         val path = imageUri?.let { uploadPhoto(userId, it) }
         try {

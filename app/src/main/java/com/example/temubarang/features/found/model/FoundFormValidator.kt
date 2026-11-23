@@ -5,6 +5,9 @@ import java.time.format.DateTimeParseException
 
 /** Validator tanpa dependensi Android, dapat diuji dengan local unit test. */
 object FoundFormValidator {
+    fun validatePhoto(hasPhoto: Boolean): String? =
+        if (hasPhoto) null else "Silakan tambahkan foto barang."
+
     fun validate(title: String, description: String, location: String, date: String): String? {
         if (title.trim().length !in 3..120) return "Nama barang harus 3–120 karakter."
         if (description.trim().length < 10) return "Deskripsi minimal 10 karakter."

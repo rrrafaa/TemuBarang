@@ -41,7 +41,7 @@ object ReportValidation {
 
     fun found(
         title: String, description: String, location: String, date: String,
-        handover: FoundHandover, status: String
+        handover: FoundHandover, status: String, hasPhoto: Boolean = true
     ): Map<String, String> {
         val errors = common(title, description, location, date).apply {
         if (handover.category !in foundCategories) this["category"] = "Silakan pilih kategori barang."
@@ -56,10 +56,11 @@ object ReportValidation {
         }
         if (handover.pickupNotes.trim().length > 1000) this["notes"] = "Petunjuk maksimal 1.000 karakter."
         if (status !in setOf("open", "returned", "closed")) this["status"] = "Status laporan tidak valid."
+        if (!hasPhoto) this["photo"] = "Silakan tambahkan foto barang."
         }
         // Urutan error mengikuti posisi field pada form, bukan urutan penyusunan aturan.
         val order = listOf("title", "description", "category", "location", "date",
-            "campus", "custody", "pickup", "notes", "status")
+            "campus", "custody", "pickup", "notes", "status", "photo")
         return errors.entries.sortedBy { order.indexOf(it.key) }
             .associateTo(linkedMapOf()) { it.key to it.value }
     }

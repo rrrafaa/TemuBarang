@@ -98,6 +98,9 @@ fun FoundItemFormScreen(
     var firstError by remember { mutableStateOf<String?>(null) }
     var submitVersion by rememberSaveable { mutableIntStateOf(0) }
     fun clearError(key: String) { errors = errors - key }
+    LaunchedEffect(photoUriString) {
+        if (photoUriString != null) clearError("photo")
+    }
 
     AppPage(
         title = if (editing) "Edit Laporan Barang Ditemukan" else "Tambah Laporan Barang Ditemukan",
@@ -183,22 +186,26 @@ fun FoundItemFormScreen(
                             }, enabled = !busy, minLines = 2, errorText = errors["notes"],
                             isFirstError = firstError == "notes", submitVersion = submitVersion)
                     }
-                    AppSectionCard("Foto dan status barang") {
+                    AppSectionCard(if (editing) "Foto dan status barang" else "Foto barang *") {
                         if (!editing) {
-                            Text("Foto barang (opsional, maksimal 5 MB)",
+                            Text("Foto barang wajib diunggah (JPG, PNG, atau WEBP, maksimal 5 MB).",
                                 style = MaterialTheme.typography.bodyMedium)
-                            AppPhotoPicker(
-                                hasPhoto = photoUri != null, enabled = !busy,
-                                onGallery = onLaunchGallery, onCamera = onLaunchCamera,
-                                onRemove = if (photoUri != null) draftViewModel::clearSelectedPhoto else null,
-                                message = photoMessage,
-                                preview = {
-                                    if (photoUri != null) {
-                                        FoundPhoto(photoUri.toString(),
-                                            Modifier.fillMaxWidth().height(190.dp))
+                            AppValidationAnchor(firstError == "photo", submitVersion) {
+                                AppPhotoPicker(
+                                    hasPhoto = photoUri != null, required = true,
+                                    showError = errors["photo"] != null,
+                                    enabled = !busy,
+                                    onGallery = onLaunchGallery, onCamera = onLaunchCamera,
+                                    onRemove = if (photoUri != null) draftViewModel::clearSelectedPhoto else null,
+                                    message = photoMessage,
+                                    preview = {
+                                        if (photoUri != null) {
+                                            FoundPhoto(photoUri.toString(),
+                                                Modifier.fillMaxWidth().height(190.dp))
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                             if (pendingCamera != null) {
                                 Text("Memproses foto dari kamera...",
                                     style = MaterialTheme.typography.bodySmall)
@@ -235,7 +242,8 @@ fun FoundItemFormScreen(
                         onClick = {
                             val foundErrors = ReportValidation.found(
                                 title, description, location, date, handover,
-                                if (editing) editStatus else "open"
+                                if (editing) editStatus else "open",
+                                hasPhoto = editing || photoUri != null
                             )
                             errors = foundErrors
                             firstError = foundErrors.keys.firstOrNull()

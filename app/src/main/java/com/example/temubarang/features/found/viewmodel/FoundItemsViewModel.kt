@@ -82,7 +82,9 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         onSuccess: () -> Unit
     ) {
         if (_uiState.value.isSaving) return
-        val validation = FoundFormValidator.validate(title, description, location, date) ?: handover.validate()
+        val validation = FoundFormValidator.validate(title, description, location, date)
+            ?: handover.validate()
+            ?: FoundFormValidator.validatePhoto(photo != null)
         if (validation != null) {
             _uiState.update { it.copy(error = validation) }
             return
