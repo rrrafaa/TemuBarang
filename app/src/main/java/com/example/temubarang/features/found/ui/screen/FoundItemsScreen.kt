@@ -17,6 +17,9 @@ import com.example.temubarang.features.found.viewmodel.FoundItemsViewModel
 import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.component.AppIcon
 import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.component.AppSearchBar
+import com.example.temubarang.ui.component.AppFilterChip
+import androidx.compose.ui.graphics.Color
 import com.example.temubarang.ui.theme.BrandBackground
 
 @Composable
@@ -41,17 +44,14 @@ fun FoundItemsScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                item { Text("Temukan barangmu dan lihat tempat pengambilannya di kampus.") }
                 item {
-                    OutlinedTextField(query, { query = it },
-                        placeholder = { Text("Cari barang, kampus, atau lokasi") },
-                        leadingIcon = { AppIcon(R.drawable.ic_search_duotone, null) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    AppSearchBar(value = query, onValueChange = { query = it },
+                        placeholder = "Cari barang, kampus, atau lokasi")
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = { Text("Tersedia") })
-                        FilterChip(onlyMine, { onlyMine = !onlyMine }, label = { Text("Laporan saya") })
+                        AppFilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = "Tersedia")
+                        AppFilterChip(onlyMine, { onlyMine = !onlyMine }, label = "Laporan saya")
                     }
                 }
                 item { FoundMessage(state.error); FoundMessage(state.notice, isError = false) }
@@ -67,7 +67,7 @@ fun FoundItemsScreen(
                     }
                 }
             }
-            Surface(tonalElevation = 2.dp) {
+            Surface(color = Color.Transparent) {
                 GradientPrimaryButton(
                     text = "Tambah Laporan", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     leadingIcon = { AppIcon(R.drawable.ic_circle_plus_duotone, null) },

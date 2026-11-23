@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.temubarang.features.found.model.FoundItem
 import com.example.temubarang.features.found.model.foundStatusLabel
+import com.example.temubarang.ui.component.AppStatusBadge
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSizes
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
 import com.example.temubarang.ui.theme.BrandSoftMint
@@ -72,23 +75,20 @@ fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.card)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FoundPhoto(photoUrl, Modifier.size(96.dp))
+            FoundPhoto(photoUrl, Modifier.size(AppSizes.previewPhoto))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
                 if (item.campus.isNotBlank()) Text(item.campus, style = MaterialTheme.typography.labelMedium)
                 Text(item.foundLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Ditemukan: ${item.foundAt}", style = MaterialTheme.typography.bodySmall)
-                Surface(shape = RoundedCornerShape(8.dp), color = BrandSoftMint) {
-                    Text(item.status.foundStatusLabel(), color = BrandNavy,
-                        style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(6.dp))
-                }
+                AppStatusBadge(item.status.foundStatusLabel(), positive = item.status == "open")
             }
         }
     }

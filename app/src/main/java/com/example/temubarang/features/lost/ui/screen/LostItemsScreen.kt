@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.features.lost.ui.component.LostItemCard
@@ -20,6 +23,7 @@ import com.example.temubarang.features.lost.ui.component.LostMessage
 import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
 import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.component.AppSearchBar
 import com.example.temubarang.ui.theme.BrandNavy
 
 @Composable
@@ -30,6 +34,11 @@ fun LostItemsScreen(
     onDetail: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    var query by rememberSaveable { mutableStateOf("") }
+    val visibleItems = state.items.filter { item ->
+        query.isBlank() || listOf(item.title, item.description, item.lastSeenLocation)
+            .any { it.contains(query.trim(), ignoreCase = true) }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -45,11 +54,8 @@ fun LostItemsScreen(
             modifier = Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                "Laporan barang hilang yang kamu buat.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = BrandNavy
-            )
+            AppSearchBar(value = query, onValueChange = { query = it },
+                placeholder = "Cari nama atau lokasi barang hilang")
             GradientPrimaryButton(
                 text = "+ Tambah Laporan",
                 onClick = {
@@ -62,18 +68,18 @@ fun LostItemsScreen(
 
             if (state.isLoading && state.items.isEmpty()) {
                 CircularProgressIndicator()
-            } else if (state.items.isEmpty()) {
-                Text("Kamu belum membuat laporan barang hilang. Ketuk tombol Tambah Laporan untuk memulai.")
+            } else if (visibleItems.isEmpty()) {
+                Text(if (query.isNotBlank()) "Tidak ada barang hilang yang cocok dengan pencarian." else "Kamu belum membuat laporan barang hilang. Ketuk Tambah Laporan untuk memulai.")
             } else {
                 Text(
-                    "${state.items.size} laporan",
+                    "${visibleItems.size} laporan",
                     style = MaterialTheme.typography.labelMedium
                 )
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.items, key = { it.id }) { item ->
+                    items(visibleItems, key = { it.id }) { item ->
                         LostItemCard(item, viewModel.photoUrl(item.imagePath)) {
                             viewModel.clearMessages()
                             onDetail(item.id)

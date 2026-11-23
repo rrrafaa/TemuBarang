@@ -27,6 +27,9 @@ import com.example.temubarang.R
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -40,6 +43,11 @@ import com.example.temubarang.features.home.model.HomeFeedItem
 import com.example.temubarang.features.home.model.ReportType
 import com.example.temubarang.features.home.viewmodel.HomeViewModel
 import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.component.AppSearchBar
+import com.example.temubarang.ui.component.AppFilterChip
+import com.example.temubarang.ui.component.AppStatusBadge
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSpacing
 import com.example.temubarang.ui.theme.BrandBackground
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
@@ -56,7 +64,12 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     LaunchedEffect(Unit) { viewModel.refresh() }
-    val visibleItems = state.visibleItems
+    var query by rememberSaveable { mutableStateOf("") }
+    val term = query.trim()
+    val visibleItems = state.visibleItems.filter { item ->
+        term.isEmpty() || listOf(item.title, item.location, item.statusLabel, item.type.label)
+            .any { it.contains(term, ignoreCase = true) }
+    }
 
     AppPage("Beranda", onRefresh = viewModel::refresh, refreshing = state.isLoading) {
         LazyColumn(
@@ -64,29 +77,37 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Surface(shape = RoundedCornerShape(24.dp), color = com.example.temubarang.ui.theme.BrandSoftBlue) {
-                    Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val hour = java.time.LocalTime.now().hour
-                        val greeting = when (hour) { in 5..10 -> "Selamat pagi"; in 11..14 -> "Selamat siang"; in 15..17 -> "Selamat sore"; else -> "Selamat malam" }
-                        Text("$greeting,", color = BrandMuted)
-                        Text("${userName.trim().ifBlank { "Teman Kampus" }}!", style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
-                        Text("Ada barang yang tertinggal? Yuk, bantu temukan pemiliknya dan buat kampus lebih peduli.", color = BrandMuted)
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+                    val hour = java.time.LocalTime.now().hour
+                    val greeting = when (hour) {
+                        in 5..10 -> "Selamat pagi"
+                        in 11..14 -> "Selamat siang"
+                        in 15..17 -> "Selamat sore"
+                        else -> "Selamat malam"
                     }
+                    Text("Hi, ${userName.trim().ifBlank { "Teman Kampus" }}",
+                        style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
+                    Text(greeting, style = MaterialTheme.typography.titleMedium, color = BrandMuted)
+                    Text("Temukan kembali barangmu dan bantu teman kampus.",
+                        style = MaterialTheme.typography.bodyMedium, color = BrandMuted)
                 }
+            }
+            item {
+                AppSearchBar(value = query, onValueChange = { query = it },
+                    placeholder = "Cari nama barang atau lokasi")
             }
             item { GradientPrimaryButton("Saya Menemukan Barang", onClick = onOpenFound,
                 leadingIcon = { AppIcon(R.drawable.ic_package_check_duotone, null) }) }
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Kabar Barang di Kampus", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = BrandNavy)
-                    TextButton(onClick = onOpenLost) { Text("Lihat Hilang") }
-                }
+                Text("Kabar Barang di Kampus",
+                    style = MaterialTheme.typography.titleMedium, color = BrandNavy)
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(null, ReportType.LOST, ReportType.FOUND).forEach { type ->
-                        FilterChip(selected = state.filter == type, onClick = { viewModel.setFilter(type) },
-                            label = { Text(type?.label ?: "Semua") })
+                        AppFilterChip(selected = state.filter == type,
+                            onClick = { viewModel.setFilter(type) },
+                            label = type?.label ?: "Semua")
                     }
                 }
             }
@@ -94,7 +115,7 @@ fun HomeScreen(
             state.error?.let { message -> item { FeedbackMessage(message) } }
             if (state.isLoading && state.items.isEmpty()) item { CircularProgressIndicator() }
             else if (visibleItems.isEmpty()) item {
-                Surface(shape = RoundedCornerShape(18.dp)) {
+                Surface(shape = RoundedCornerShape(AppRadius.card)) {
                     Text("Belum ada kabar barang di kategori ini. Coba kategori lain atau laporkan barang yang kamu temukan.", Modifier.padding(20.dp), color = BrandMuted)
                 }
             } else {
@@ -122,7 +143,7 @@ private fun FeedbackMessage(text: String) {
 private fun ReportPreviewCard(item: HomeFeedItem, photoUrl: String?, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(AppRadius.card),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 1.dp
     ) {
@@ -135,7 +156,7 @@ private fun ReportPreviewCard(item: HomeFeedItem, photoUrl: String?, onClick: ()
                     modifier = Modifier.size(78.dp).clip(RoundedCornerShape(12.dp))
                 )
             } else {
-                Surface(modifier = Modifier.size(78.dp), color = Color(0xFFE7F2FF),
+                Surface(modifier = Modifier.size(78.dp), color = com.example.temubarang.ui.theme.BrandSoftBlue,
                     shape = RoundedCornerShape(12.dp)) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center) {
@@ -149,8 +170,8 @@ private fun ReportPreviewCard(item: HomeFeedItem, photoUrl: String?, onClick: ()
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
                 Text("${if (item.type == ReportType.FOUND) "Ditemukan di" else "Terakhir terlihat"}: ${item.location}", color = BrandMuted,
                     style = MaterialTheme.typography.bodySmall)
-                Text("${item.date} · ${item.statusLabel}",
-                    style = MaterialTheme.typography.labelSmall, color = BrandMuted)
+                Text(item.date, style = MaterialTheme.typography.labelSmall, color = BrandMuted)
+                AppStatusBadge(item.statusLabel, positive = item.statusLabel != "Laporan ditutup")
             }
         }
     }
