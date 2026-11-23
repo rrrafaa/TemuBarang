@@ -142,6 +142,10 @@ fun AppValidatedTextField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     imeAction: ImeAction = ImeAction.Next,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
     isFirstError: Boolean = false,
     submitVersion: Int = 0
 ) {
@@ -157,6 +161,8 @@ fun AppValidatedTextField(
         value = value, onValueChange = onValueChange, label = label,
         placeholder = placeholder, supportingText = supportingText, errorText = errorText,
         enabled = enabled, singleLine = singleLine, minLines = minLines, imeAction = imeAction,
+        keyboardType = keyboardType, capitalization = capitalization,
+        visualTransformation = visualTransformation, trailingIcon = trailingIcon,
         modifier = Modifier.bringIntoViewRequester(bring).focusRequester(focus)
     )
 }
