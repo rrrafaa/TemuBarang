@@ -120,9 +120,9 @@ fun PhotoUploadField(
 ) {
     AppPhotoPicker(
         hasPhoto = previewUrl != null,
-        preview = if (previewUrl != null) ({
-            LostPhoto(previewUrl, Modifier.fillMaxWidth().height(210.dp))
-        }) else null,
+        preview = {
+            if (previewUrl != null) LostPhoto(previewUrl, Modifier.fillMaxWidth().height(210.dp))
+        },
         required = true,
         showError = showError,
         message = message,

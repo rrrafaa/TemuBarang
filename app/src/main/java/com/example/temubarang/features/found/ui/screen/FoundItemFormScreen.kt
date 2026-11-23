@@ -179,10 +179,12 @@ fun FoundItemFormScreen(
                                 onCamera = onLaunchCamera,
                                 onRemove = if (photoUri != null) draftViewModel::clearSelectedPhoto else null,
                                 message = cameraMessage,
-                                preview = if (photoUri != null) ({
-                                    FoundPhoto(photoUri.toString(),
-                                        Modifier.fillMaxWidth().height(190.dp))
-                                }) else null
+                                preview = {
+                                    if (photoUri != null) {
+                                        FoundPhoto(photoUri.toString(),
+                                            Modifier.fillMaxWidth().height(190.dp))
+                                    }
+                                }
                             )
                             if (pendingCameraUri != null) {
                                 Text("Memproses foto dari kamera...",
