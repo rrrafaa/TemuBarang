@@ -163,7 +163,7 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = null,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                    onSaved = { navController.navigate(AppRoute.LOST) {
                         popUpTo(AppRoute.HOME) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
@@ -192,7 +192,7 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.FOUND) {
+                    onSaved = { navController.navigate(AppRoute.LOST) {
                         popUpTo(AppRoute.HOME) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
