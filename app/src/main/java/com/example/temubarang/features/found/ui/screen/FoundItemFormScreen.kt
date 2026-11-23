@@ -172,9 +172,10 @@ fun FoundItemFormScreen(
                         if (!editing) {
                             Text("Foto barang (opsional, maksimal 5 MB)",
                                 style = MaterialTheme.typography.bodyMedium)
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
                                     onClick = onLaunchCamera,
+                                    modifier = Modifier.fillMaxWidth(),
                                     enabled = !state.isSaving && pendingCameraUri == null
                                 ) {
                                     AppIcon(R.drawable.ic_camera_duotone, null)
@@ -182,6 +183,7 @@ fun FoundItemFormScreen(
                                 }
                                 OutlinedButton(
                                     onClick = onLaunchGallery,
+                                    modifier = Modifier.fillMaxWidth(),
                                     enabled = !state.isSaving && pendingCameraUri == null
                                 ) {
                                     AppIcon(R.drawable.ic_image_duotone, null)
