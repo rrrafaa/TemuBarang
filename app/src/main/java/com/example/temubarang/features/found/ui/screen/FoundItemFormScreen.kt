@@ -32,6 +32,7 @@ import com.example.temubarang.ui.component.AppValidationAnchor
 import com.example.temubarang.ui.component.GradientPrimaryButton
 import com.example.temubarang.ui.theme.BrandBackground
 import com.example.temubarang.ui.validation.ReportValidation
+import com.example.temubarang.features.found.model.canManage
 import java.time.LocalDate
 
 /** Draft create tetap di SavedStateHandle; editing memakai rememberSaveable dengan ID laporan. */
@@ -47,10 +48,9 @@ fun FoundItemFormScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val editing = itemId != null
-    val item = state.items.firstOrNull { it.id == itemId }
-        ?: state.detail?.takeIf { it.id == itemId }
+    val item = state.detail?.takeIf { it.id == itemId }
     LaunchedEffect(itemId) {
-        if (itemId != null && item == null) viewModel.load(itemId)
+        if (itemId != null) viewModel.load(itemId)
     }
 
     val draftTitle by draftViewModel.title.collectAsState()
@@ -91,7 +91,7 @@ fun FoundItemFormScreen(
         if (editing) editNotes else draftNotes
     )
     val photoUri = photoUriString?.let(Uri::parse)
-    val canEdit = !editing || (item != null && item.reporterId == viewModel.userId)
+    val canEdit = !editing || (itemId != null && state.canManage(itemId, viewModel.userId))
     val busy = state.isSaving || pendingCamera != null
 
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -120,6 +120,8 @@ fun FoundItemFormScreen(
                 if (editing && item == null) {
                     if (state.isLoadingDetail) CircularProgressIndicator()
                     else Text("Laporan tidak ditemukan.")
+                } else if (editing && item?.reporterId == viewModel.userId && item?.status == "open" && state.claimStatus == null && state.error == null) {
+                    CircularProgressIndicator()
                 } else if (!canEdit) {
                     Text("Kamu tidak memiliki izin untuk mengedit laporan ini.")
                 } else {
@@ -217,7 +219,7 @@ fun FoundItemFormScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FoundChoiceRow(
                                     "Status barang",
-                                    listOf("open", "returned", "closed")
+                                    listOf("open", "closed")
                                         .associateWith { it.foundStatusLabel() },
                                     editStatus, { editStatus = it; clearError("status") },
                                     enabled = !busy

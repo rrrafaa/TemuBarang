@@ -4,6 +4,8 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.example.temubarang.features.found.model.FoundClaimStatus
+import com.example.temubarang.features.found.model.FoundReportStatusChange
 import com.example.temubarang.features.found.model.FoundHandover
 import com.example.temubarang.features.found.model.FoundItem
 import com.example.temubarang.features.found.model.FoundItemChanges
@@ -11,10 +13,10 @@ import com.example.temubarang.features.found.model.NewFoundItem
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -38,14 +40,32 @@ class FoundItemRepository(
 
     suspend fun list(): List<FoundItem> = withContext(Dispatchers.IO) {
         client.from(TABLE).select {
+            filter { eq("archived", false) }
             order(column = "created_at", order = Order.DESCENDING)
         }.decodeList<FoundItem>()
     }
 
     suspend fun get(id: String): FoundItem = withContext(Dispatchers.IO) {
         client.from(TABLE).select {
-            filter { eq("id", id) }
+            filter {
+                eq("id", id)
+                eq("archived", false)
+            }
         }.decodeSingle<FoundItem>()
+    }
+
+    suspend fun activeClaimStatus(id: String): String = withContext(Dispatchers.IO) {
+        val statuses = client.from("claims").select(Columns.list("status")) {
+            filter {
+                eq("found_item_id", id)
+                isIn("status", listOf("pending", "approved"))
+            }
+        }.decodeList<FoundClaimStatus>()
+        when {
+            statuses.any { it.status == "approved" } -> "approved"
+            statuses.isNotEmpty() -> "pending"
+            else -> "none"
+        }
     }
 
     fun publicPhotoUrl(path: String?): String? = path?.takeIf { it.isNotBlank() }?.let {
@@ -58,7 +78,7 @@ class FoundItemRepository(
         val userId = requireUserId()
         require(imageUri != null) { "Silakan tambahkan foto barang." }
         // Sesuai RLS Storage: <auth.uid()>/found/<uuid>.<ext>
-        val path = imageUri?.let { uploadPhoto(userId, it) }
+        val path = uploadPhoto(userId, imageUri)
         try {
             val inserted = client.from(TABLE).insert(
             NewFoundItem(
@@ -77,11 +97,9 @@ class FoundItemRepository(
             }
             inserted
         } catch (e: Exception) {
-            if (path != null) {
-                try { client.storage.from(BUCKET).delete(listOf(path)) }
-                catch (cleanupError: Exception) {
-                    android.util.Log.w("TemuBarangFound", "Gagal membersihkan foto setelah insert gagal", cleanupError)
-                }
+            try { client.storage.from(BUCKET).delete(listOf(path)) }
+            catch (cleanupError: Exception) {
+                android.util.Log.w("TemuBarangFound", "Gagal membersihkan foto setelah insert gagal", cleanupError)
             }
             throw e
         }
@@ -92,7 +110,7 @@ class FoundItemRepository(
         location: String, date: String, status: String, handover: FoundHandover
     ) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
-        require(status in setOf("open", "returned", "closed")) { "Status laporan tidak valid." }
+        require(status in setOf("open", "closed")) { "Status laporan tidak valid." }
         val updated = client.from(TABLE).update(
             FoundItemChanges(
                 title = title.trim(), description = description.trim(), foundLocation = location.trim(),
@@ -111,29 +129,22 @@ class FoundItemRepository(
         updated
     }
 
-    /** RLS tetap wajib; filter pemilik dan RETURNING mencegah sukses palsu (0 baris). */
-    suspend fun delete(id: String): String? = withContext(Dispatchers.IO) {
+    suspend fun archive(id: String) = changeStatus(id, FoundReportStatusChange("closed", archived = true))
+
+    suspend fun confirmReturn(id: String) = changeStatus(id, FoundReportStatusChange("returned"))
+
+    private suspend fun changeStatus(id: String, change: FoundReportStatusChange) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
-        val deleted = client.from(TABLE).delete {
+        val updated = client.from(TABLE).update(change) {
             filter {
                 eq("id", id)
                 eq("reporter_id", userId)
+                eq("status", "open")
+                eq("archived", false)
             }
             select()
         }.decodeList<FoundItem>().singleOrNull()
-            ?: throw IllegalStateException("Laporan tidak terhapus. Data sudah dihapus atau izin hapus tidak tersedia.")
-        // Hapus baris dahulu: foto jangan hilang bila DELETE ditolak RLS/relasi klaim.
-        val path = deleted.imagePath?.takeIf { it.startsWith("$userId/found/") }
-        if (path != null) {
-            try {
-                client.storage.from(BUCKET).delete(listOf(path))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                return@withContext "Laporan berhasil dihapus, tetapi foto belum dibersihkan dari Storage. Hubungi pengelola."
-            }
-        }
-        null
+        checkNotNull(updated) { "Laporan tidak tersedia untuk perubahan status." }
     }
 
     /**

@@ -22,6 +22,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.temubarang.features.found.model.canManage
+import com.example.temubarang.features.found.model.canConfirmReturn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,29 +50,48 @@ fun FoundItemDetailScreen(
     viewModel: FoundItemsViewModel,
     itemId: String,
     onBack: () -> Unit,
-    onDeleted: () -> Unit,
+    onManaged: () -> Unit,
     onEdit: (String) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     var contactError by rememberSaveable(itemId) { mutableStateOf<String?>(null) }
     val state by viewModel.uiState.collectAsState()
     LaunchedEffect(itemId) { viewModel.load(itemId) }
-    var confirmDelete by rememberSaveable(itemId) { mutableStateOf(false) }
+    var confirmArchive by rememberSaveable(itemId) { mutableStateOf(false) }
     val item = state.detail?.takeIf { it.id == itemId }
+    val canManage = state.canManage(itemId, viewModel.userId)
+    val canConfirmReturn = state.canConfirmReturn(itemId, viewModel.userId)
+    var confirmReturn by rememberSaveable(itemId) { mutableStateOf(false) }
 
-    if (confirmDelete && item != null && viewModel.userId == item.reporterId) {
+    if (confirmArchive && item != null && canManage) {
         AlertDialog(
-            onDismissRequest = { if (!state.isSaving) confirmDelete = false },
-            title = { Text("Hapus laporan?") },
-            text = { Text("Laporan \"${item.title}\" dan fotonya akan dihapus. Tindakan ini tidak dapat dibatalkan.") },
+            onDismissRequest = { if (!state.isSaving) confirmArchive = false },
+            title = { Text("Arsipkan laporan?") },
+            text = { Text("Laporan dan foto akan disimpan bersama riwayat klaim. Laporan tidak lagi tampil di daftar.") },
             confirmButton = {
                 TextButton(enabled = !state.isSaving, onClick = {
-                    confirmDelete = false
-                    viewModel.delete(itemId, onDeleted)
-                }) { Text("Hapus", color = MaterialTheme.colorScheme.error) }
+                    confirmArchive = false
+                    viewModel.archive(itemId, onManaged)
+                }) { Text("Arsipkan", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(enabled = !state.isSaving, onClick = { confirmDelete = false }) { Text("Batal") }
+                TextButton(enabled = !state.isSaving, onClick = { confirmArchive = false }) { Text("Batal") }
+            }
+        )
+    }
+    if (confirmReturn && canConfirmReturn) {
+        AlertDialog(
+            onDismissRequest = { confirmReturn = false },
+            title = { Text("Konfirmasi pengembalian?") },
+            text = { Text("Lanjutkan jika barang sudah diserahkan kepada pemiliknya.") },
+            confirmButton = {
+                TextButton(enabled = !state.isSaving, onClick = {
+                    confirmReturn = false
+                    viewModel.confirmReturn(itemId, onManaged)
+                }) { Text("Konfirmasi") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReturn = false }) { Text("Batal") }
             }
         )
     }
@@ -123,28 +144,26 @@ fun FoundItemDetailScreen(
                                 catch (_: Exception) { contactError = "Aplikasi telepon tidak tersedia. Gunakan nomor yang ditampilkan." }
                             }) { AppIcon(R.drawable.ic_phone_duotone, null); Text(" Telepon: $phone") }
                         }
-                        Text("Hubungi pelapor untuk koordinasi. Kontak langsung bukan persetujuan klaim; siapkan bukti kepemilikan.", style = MaterialTheme.typography.bodySmall)
+                        Text("Hubungi pelapor untuk koordinasi pengambilan dan siapkan bukti kepemilikan.", style = MaterialTheme.typography.bodySmall)
                     }
                     if (!state.reporterLoading && state.reporter == null && state.reporterError == null) {
                         Text("Pelapor belum melengkapi profil.")
                     }
                     FoundMessage(contactError)
                 }
-                if (viewModel.userId == item.reporterId) {
-                    if (!state.isSaving) {
-                        GradientPrimaryButton("Edit Laporan / Ubah Status", onClick = { onEdit(item.id) })
-                    }
+                if (canManage) {
+                    GradientPrimaryButton("Edit Laporan / Ubah Status", enabled = !state.isSaving,
+                        onClick = { onEdit(item.id) })
                     OutlinedButton(
-                        onClick = { confirmDelete = true }, enabled = !state.isSaving,
+                        onClick = { confirmArchive = true }, enabled = !state.isSaving,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        AppIcon(R.drawable.ic_trash_duotone, null)
-                        Text(if (state.isSaving) " Menghapus..." else " Hapus Laporan",
-                            color = MaterialTheme.colorScheme.error)
-                    }
-                } else {
-                    Text("Hanya pelapor yang dapat mengubah laporan ini.",
-                        style = MaterialTheme.typography.bodySmall)
+                    ) { Text("Arsipkan Laporan") }
+                } else if (canConfirmReturn) {
+                    Text("Laporan terkunci karena klaim telah disetujui.")
+                    GradientPrimaryButton("Konfirmasi Pengembalian", enabled = !state.isSaving,
+                        onClick = { confirmReturn = true })
+                } else if (viewModel.userId == item.reporterId && state.claimStatus == "pending") {
+                    Text("Laporan terkunci selama klaim kepemilikan sedang diproses.")
                 }
             }
         }

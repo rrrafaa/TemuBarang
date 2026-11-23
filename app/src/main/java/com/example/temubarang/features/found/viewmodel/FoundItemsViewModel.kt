@@ -12,6 +12,8 @@ import com.example.temubarang.features.profile.repository.ProfileRepository
 import com.example.temubarang.features.found.model.FoundErrorMapper
 import com.example.temubarang.features.found.model.FoundFormValidator
 import com.example.temubarang.features.found.model.FoundUiState
+import com.example.temubarang.features.found.model.canManage
+import com.example.temubarang.features.found.model.canConfirmReturn
 import com.example.temubarang.features.found.repository.FoundItemRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
@@ -56,10 +58,20 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         val version = ++detailVersion
         detailJob?.cancel()
         detailJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingDetail = true, detail = null, error = null, reporter = null, reporterError = null, reporterLoading = true) }
+            _uiState.update { it.copy(isLoadingDetail = true, detail = null, claimStatus = null, error = null, reporter = null, reporterError = null, reporterLoading = true) }
             try {
                 val item = repository.get(id)
                 _uiState.update { it.copy(detail = item, isLoadingDetail = false) }
+                try {
+                    if (item.reporterId == userId && item.status == "open") {
+                        val claimStatus = repository.activeClaimStatus(id)
+                        _uiState.update { it.copy(claimStatus = claimStatus) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(error = "Status klaim belum dapat diperiksa. Muat ulang detail.") }
+                }
                 try {
                     val reporter = profiles.reporter(id)
                     _uiState.update { it.copy(reporter = reporter) }
@@ -114,12 +126,16 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         date: String, status: String, handover: FoundHandover, onSuccess: () -> Unit
     ) {
         if (_uiState.value.isSaving) return
+        if (!_uiState.value.canManage(id, userId)) {
+            _uiState.update { it.copy(error = "Laporan tidak dapat diedit.") }
+            return
+        }
         val validation = FoundFormValidator.validate(title, description, location, date) ?: handover.validate()
         if (validation != null) {
             _uiState.update { it.copy(error = validation) }
             return
         }
-        if (status !in listOf("open", "returned", "closed")) {
+        if (status !in listOf("open", "closed")) {
             _uiState.update { it.copy(error = "Status laporan tidak valid.") }
             return
         }
@@ -144,27 +160,35 @@ class FoundItemsViewModel(private val repository: FoundItemRepository, private v
         }
     }
 
-    fun delete(id: String, onSuccess: () -> Unit) {
-        if (_uiState.value.isSaving) return
-        val item = _uiState.value.detail?.takeIf { it.id == id }
-        if (item == null || item.reporterId != userId) {
-            _uiState.update { it.copy(error = "Hanya pelapor yang dapat menghapus laporan ini.") }
-            return
+    fun archive(id: String, onSuccess: () -> Unit) {
+        if (!_uiState.value.canManage(id, userId)) return
+        changeReportStatus("Laporan berhasil diarsipkan.", onSuccess) {
+            repository.archive(id)
+            _uiState.update { state -> state.copy(items = state.items.filterNot { it.id == id }, detail = null) }
         }
+    }
+
+    fun confirmReturn(id: String, onSuccess: () -> Unit) {
+        if (!_uiState.value.canConfirmReturn(id, userId)) return
+        changeReportStatus("Pengembalian barang berhasil dikonfirmasi.", onSuccess) {
+            val returned = repository.confirmReturn(id)
+            _uiState.update { state -> state.copy(detail = returned, items = state.items.map { if (it.id == id) returned else it }) }
+        }
+    }
+
+    private fun changeReportStatus(notice: String, onSuccess: () -> Unit, change: suspend () -> Unit) {
+        if (_uiState.value.isSaving) return
         _uiState.update { it.copy(isSaving = true, error = null, notice = null) }
         viewModelScope.launch {
             try {
-                val warning = repository.delete(id)
-                _uiState.update { state -> state.copy(
-                    revision = state.revision + 1,
-                    items = state.items.filterNot { it.id == id }, detail = null,
-                    notice = warning ?: "Laporan berhasil dihapus."
-                ) }
+                change()
+                _uiState.update { it.copy(revision = it.revision + 1, notice = notice) }
                 onSuccess()
                 refresh()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                _uiState.update { it.copy(claimStatus = null) }
                 showError(e)
             } finally {
                 _uiState.update { it.copy(isSaving = false) }

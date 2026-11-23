@@ -38,6 +38,12 @@ data class NewFoundItem(
 )
 
 @Serializable
+data class FoundReportStatusChange(val status: String, val archived: Boolean = false)
+
+@Serializable
+data class FoundClaimStatus(val status: String)
+
+@Serializable
 data class FoundItemChanges(
     val title: String,
     val description: String,

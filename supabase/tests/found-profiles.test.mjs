@@ -22,6 +22,7 @@ try {
     values ('${item}','${owner}','Kunci motor','Kunci motor merah','Kantin','2026-01-01');`);
   await db.exec(await read('../migrations/202611160001_found_profiles.sql'));
   await db.exec(await read('../migrations/202611160002_found_storage.sql'));
+  await db.exec(await read('../migrations/202611230002_found_report_management.sql'));
   await test('migration preserves legacy report and backfills profiles', async () => {
     assert.equal((await db.query('select count(*)::int as n from public.found_items')).rows[0].n, 1);
     assert.equal((await db.query('select count(*)::int as n from public.profiles')).rows[0].n, 2);
@@ -77,7 +78,10 @@ try {
   await login(owner);
   await test('reporter sees claims, but cannot delete a report with claims', async () => {
     assert.equal((await db.query(`select * from public.claims`)).rows.length, 2);
-    await rejects(`delete from public.found_items where id='${item}'`, '23503');
+    await rejects(`delete from public.found_items where id='${item}'`, '23514');
+    await rejects(`update public.found_items set title='Perubahan judul' where id='${item}'`, '23514');
+    await rejects(`update public.found_items set archived=true, status='closed' where id='${item}'`, '23514');
+    await rejects(`update public.found_items set status='returned' where id='${item}'`, '23514');
   });
   await test('sharing contact is opt-in and revocable', async () => {
     await db.exec(`update public.profiles set share_contact=true where id='${owner}'`);
@@ -89,15 +93,37 @@ try {
     assert.equal((await db.query(`select * from public.get_found_reporter('${item}')`)).rows[0].phone, null);
     await login(owner);
   });
-  await test('approval atomically returns item and rejects competing claims', async () => {
+  await test('approval keeps item open and separate handover completes it', async () => {
     await db.exec(`select public.review_found_claim('${claim}',true)`);
     const claims = (await db.query(`select status from public.claims order by id`)).rows.map(r => r.status);
     assert.equal(claims.filter(s => s === 'approved').length, 1);
     assert.equal(claims.filter(s => s === 'rejected').length, 1);
-    assert.equal((await db.query(`select status from public.found_items where id='${item}'`)).rows[0].status, 'returned');
+    assert.equal((await db.query(`select status from public.found_items where id='${item}'`)).rows[0].status, 'open');
+    await rejects(`update public.found_items set status='closed' where id='${item}'`, '23514');
+    await rejects(`update public.found_items set status='returned', title='Judul disisipkan' where id='${item}'`, '23514');
+    await db.exec(`update public.found_items set status='returned' where id='${item}'`);
+    await rejects(`update public.found_items set status='open' where id='${item}'`, '23514');
     assert.equal((await db.query(`select decided_by from public.claims where id='${claim}'`)).rows[0].decided_by, owner);
     assert.ok((await db.query(`select decided_at from public.claims where id='${claim}'`)).rows[0].decided_at);
     await rejects(`select public.review_found_claim('${claim}',true)`, '23514');
+  });
+  await test('rejected claim unlocks editing and archive preserves claim history', async () => {
+    const another = '10000000-0000-0000-0000-000000000002';
+    await db.exec(`insert into public.found_items(id,reporter_id,title,description,found_location,found_at,campus,pickup_location)
+      values ('${another}','${owner}','Kartu mahasiswa','Kartu warna merah','Kantin','2026-01-01','Kampus A','Pos satpam');`);
+    await login(member);
+    const submitted = (await db.query(`insert into public.claims(found_item_id,claimant_id,proof_description)
+      values ('${another}','${member}','Bukti kepemilikan') returning id`)).rows[0].id;
+    await login(owner);
+    await db.exec(`select public.review_found_claim('${submitted}',false)`);
+    await db.exec(`update public.found_items set title='Kartu identitas' where id='${another}'`);
+    await rejects(`delete from public.found_items where id='${another}'`, '23503');
+    await db.exec(`update public.found_items set archived=true, status='closed' where id='${another}'`);
+    assert.equal((await db.query(`select status from public.claims where id='${submitted}'`)).rows[0].status, 'rejected');
+    await login(member);
+    assert.equal((await db.query(`select id from public.found_items where id='${another}'`)).rows.length, 0);
+    assert.equal((await db.query(`select * from public.get_found_reporter('${another}')`)).rows.length, 0);
+    assert.equal((await db.query(`select status from public.claims where id='${submitted}'`)).rows[0].status, 'rejected');
   });
   await login('', 'anon');
   await test('anonymous access to reports, profiles and contact RPC is denied', async () => {

@@ -21,6 +21,8 @@ object FoundErrorMapper {
                 "Akses ditolak Supabase (RLS). Pastikan kamu login dan mengubah laporan milik sendiri."
             "23503" in all || "foreign key" in all ->
                 "Laporan masih terkait klaim. Selesaikan klaim atau tutup laporan melalui Edit sebelum menghapus."
+            "klaim aktif" in all -> "Laporan terkunci karena terdapat klaim aktif. Muat ulang detail laporan."
+            "laporan ini sudah selesai" in all -> "Laporan yang sudah selesai atau diarsipkan tidak dapat diubah."
             "23514" in all || "check constraint" in all ->
                 "Data tidak memenuhi aturan database. Periksa nama, deskripsi, tanggal, dan status."
             "413" in all || "payload too large" in all || "file size" in all ->

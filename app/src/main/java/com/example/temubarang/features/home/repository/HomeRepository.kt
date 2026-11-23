@@ -19,6 +19,7 @@ class HomeRepository(private val client: SupabaseClient) {
 
     suspend fun listFoundItems(): List<FoundItem> = withContext(Dispatchers.IO) {
         client.from("found_items").select {
+            filter { eq("archived", false) }
             order(column = "created_at", order = Order.DESCENDING)
         }.decodeList<FoundItem>()
     }

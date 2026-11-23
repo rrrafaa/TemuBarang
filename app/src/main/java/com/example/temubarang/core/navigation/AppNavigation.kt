@@ -233,13 +233,7 @@ fun AuthenticatedNavigation(
                 FoundItemDetailScreen(
                     viewModel = foundVm, itemId = id,
                     onBack = { navController.popBackStack() },
-                    onDeleted = {
-                        // Detail juga bisa dibuka langsung dari Beranda.
-                        navController.navigate(AppRoute.FOUND) {
-                            popUpTo(AppRoute.HOME)
-                            launchSingleTop = true
-                        }
-                    },
+                    onManaged = { finishReportAction(AppRoute.FOUND) },
                     onEdit = { navController.navigate("${AppRoute.FOUND_EDIT}/$it") }
                 )
             }
