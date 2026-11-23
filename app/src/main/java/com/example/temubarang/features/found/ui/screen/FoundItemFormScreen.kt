@@ -2,47 +2,40 @@ package com.example.temubarang.features.found.ui.screen
 
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.features.found.model.FoundHandover
+import com.example.temubarang.features.found.model.custodyTypes
+import com.example.temubarang.features.found.model.foundCategories
 import com.example.temubarang.features.found.model.foundStatusLabel
+import com.example.temubarang.features.found.ui.component.FoundChoiceRow
+import com.example.temubarang.features.found.ui.component.FoundFormField
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.found.ui.component.FoundPhoto
 import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
 import com.example.temubarang.features.found.viewmodel.FoundItemsViewModel
+import com.example.temubarang.ui.component.AppDatePickerField
+import com.example.temubarang.ui.component.AppDropdownField
+import com.example.temubarang.ui.component.AppPage
+import com.example.temubarang.ui.component.AppPhotoPicker
+import com.example.temubarang.ui.component.AppSectionCard
+import com.example.temubarang.ui.component.AppValidationAnchor
 import com.example.temubarang.ui.component.GradientPrimaryButton
 import com.example.temubarang.ui.theme.BrandBackground
-import com.example.temubarang.ui.theme.BrandNavy
+import com.example.temubarang.ui.validation.ReportValidation
+import com.example.temubarang.features.found.model.canManage
 import java.time.LocalDate
 
-/**
- * Form hanya memanggil aksi; kamera diluncurkan oleh MainActivity (root Composable).
- * Draft create tersimpan di FoundDraftViewModel+SavedStateHandle sehingga tidak hilang
- * ketika aplikasi kamera menutup/merestart Activity TemuBarang.
- */
+/** Draft create tetap di SavedStateHandle; editing memakai rememberSaveable dengan ID laporan. */
 @Composable
 fun FoundItemFormScreen(
     viewModel: FoundItemsViewModel,
@@ -55,10 +48,9 @@ fun FoundItemFormScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val editing = itemId != null
-    val item = state.items.firstOrNull { it.id == itemId }
-        ?: state.detail?.takeIf { it.id == itemId }
+    val item = state.detail?.takeIf { it.id == itemId }
     LaunchedEffect(itemId) {
-        if (editing && item == null) viewModel.load(itemId!!)
+        if (itemId != null) viewModel.load(itemId)
     }
 
     val draftTitle by draftViewModel.title.collectAsState()
@@ -66,8 +58,13 @@ fun FoundItemFormScreen(
     val draftLocation by draftViewModel.location.collectAsState()
     val draftDate by draftViewModel.foundAt.collectAsState()
     val photoUriString by draftViewModel.selectedPhotoUri.collectAsState()
-    val pendingCameraUri by draftViewModel.pendingCameraUri.collectAsState()
-    val cameraMessage by draftViewModel.photoMessage.collectAsState()
+    val pendingCamera by draftViewModel.pendingCameraUri.collectAsState()
+    val photoMessage by draftViewModel.photoMessage.collectAsState()
+    val draftCampus by draftViewModel.campus.collectAsState()
+    val draftCategory by draftViewModel.category.collectAsState()
+    val draftCustody by draftViewModel.custodyType.collectAsState()
+    val draftPickup by draftViewModel.pickupLocation.collectAsState()
+    val draftNotes by draftViewModel.pickupNotes.collectAsState()
 
     var editTitle by rememberSaveable(item?.id) { mutableStateOf(item?.title.orEmpty()) }
     var editDescription by rememberSaveable(item?.id) { mutableStateOf(item?.description.orEmpty()) }
@@ -75,120 +72,202 @@ fun FoundItemFormScreen(
     var editDate by rememberSaveable(item?.id) {
         mutableStateOf(item?.foundAt ?: LocalDate.now().toString())
     }
-    var status by rememberSaveable(item?.id) { mutableStateOf(item?.status ?: "open") }
+    var editCampus by rememberSaveable(item?.id) { mutableStateOf(item?.campus.orEmpty()) }
+    var editCategory by rememberSaveable(item?.id) { mutableStateOf(item?.category ?: "") }
+    var editCustody by rememberSaveable(item?.id) { mutableStateOf(item?.custodyType ?: "reporter") }
+    var editPickup by rememberSaveable(item?.id) { mutableStateOf(item?.pickupLocation.orEmpty()) }
+    var editNotes by rememberSaveable(item?.id) { mutableStateOf(item?.pickupNotes.orEmpty()) }
+    var editStatus by rememberSaveable(item?.id) { mutableStateOf(item?.status ?: "open") }
 
     val title = if (editing) editTitle else draftTitle
     val description = if (editing) editDescription else draftDescription
     val location = if (editing) editLocation else draftLocation
-    val foundAt = if (editing) editDate else draftDate
+    val date = if (editing) editDate else draftDate
+    val handover = FoundHandover(
+        if (editing) editCampus else draftCampus,
+        if (editing) editCategory else draftCategory,
+        if (editing) editCustody else draftCustody,
+        if (editing) editPickup else draftPickup,
+        if (editing) editNotes else draftNotes
+    )
     val photoUri = photoUriString?.let(Uri::parse)
+    val canEdit = !editing || (itemId != null && state.canManage(itemId, viewModel.userId))
+    val busy = state.isSaving || pendingCamera != null
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(BrandBackground)
-            .systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var firstError by remember { mutableStateOf<String?>(null) }
+    var submitVersion by rememberSaveable { mutableIntStateOf(0) }
+    fun clearError(key: String) { errors = errors - key }
+    LaunchedEffect(photoUriString) {
+        if (photoUriString != null) clearError("photo")
+    }
+
+    AppPage(
+        title = if (editing) "Edit Laporan Barang Ditemukan" else "Tambah Laporan Barang Ditemukan",
+        onBack = onBack, enabled = !busy
     ) {
-        TextButton(onClick = onBack) { Text("← Kembali") }
-        Text(
-            if (editing) "Edit Laporan" else "Laporkan Barang Ditemukan",
-            style = MaterialTheme.typography.headlineSmall, color = BrandNavy
-        )
-        Text("Lengkapi informasi barang. Hindari memuat data pribadi dalam foto dan deskripsi.")
-        FoundMessage(state.error)
-        if (editing && item == null) {
-            if (state.isLoadingDetail) CircularProgressIndicator()
-            else Text("Laporan tidak ditemukan.")
-            return@Column
-        }
-        if (editing && item != null && item.reporterId != viewModel.userId) {
-            Text("Kamu tidak memiliki izin untuk mengedit laporan ini.")
-            return@Column
-        }
+        Column(Modifier.fillMaxSize().background(BrandBackground)
+            .imePadding().navigationBarsPadding()) {
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("Lengkapi data barang dan lokasi pengambilan. Jangan cantumkan ciri rahasia.",
+                    style = MaterialTheme.typography.bodyMedium)
+                FoundMessage(state.error)
 
-        OutlinedTextField(
-            value = title,
-            onValueChange = { if (editing) editTitle = it else draftViewModel.changeTitle(it) },
-            label = { Text("Nama barang *") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { if (editing) editDescription = it else draftViewModel.changeDescription(it) },
-            label = { Text("Deskripsi / ciri barang *") }, minLines = 3,
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = location,
-            onValueChange = { if (editing) editLocation = it else draftViewModel.changeLocation(it) },
-            label = { Text("Lokasi penemuan *") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-        OutlinedTextField(
-            value = foundAt,
-            onValueChange = { if (editing) editDate = it else draftViewModel.changeFoundAt(it) },
-            label = { Text("Tanggal ditemukan (YYYY-MM-DD) *") },
-            supportingText = { Text("Contoh: 2026-11-11") },
-            modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving
-        )
-
-        if (!editing) {
-            Text("Foto barang (opsional, maksimal 5 MB)", style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = onLaunchCamera,
-                    enabled = !state.isSaving && pendingCameraUri == null
-                ) { Text("📷 Ambil Foto") }
-                OutlinedButton(
-                    onClick = onLaunchGallery,
-                    enabled = !state.isSaving && pendingCameraUri == null
-                ) { Text("Galeri") }
-            }
-            FoundMessage(cameraMessage)
-            if (pendingCameraUri != null) {
-                Text("Memproses foto dari kamera...", style = MaterialTheme.typography.bodySmall)
-            }
-            if (photoUri != null) {
-                FoundPhoto(photoUri.toString(), Modifier.fillMaxWidth().height(190.dp))
-                Text("Foto siap diunggah saat laporan disimpan.",
-                    style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = draftViewModel::clearSelectedPhoto) {
-                    Text("Hapus foto pilihan")
+                if (editing && item == null) {
+                    if (state.isLoadingDetail) CircularProgressIndicator()
+                    else Text("Laporan tidak ditemukan.")
+                } else if (editing && item?.reporterId == viewModel.userId && item?.status == "open" && state.claimStatus == null && state.error == null) {
+                    CircularProgressIndicator()
+                } else if (!canEdit) {
+                    Text("Kamu tidak memiliki izin untuk mengedit laporan ini.")
+                } else {
+                    AppSectionCard("Detail barang") {
+                        FoundFormField("Nama barang *", "Contoh: Kunci motor dengan gantungan biru",
+                            title, { if (editing) editTitle = it else draftViewModel.changeTitle(it)
+                                clearError("title") }, enabled = !busy,
+                            errorText = errors["title"],
+                            isFirstError = firstError == "title", submitVersion = submitVersion)
+                        FoundFormField("Deskripsi / ciri barang *", "Warna, merek dan ciri khusus",
+                            description, { if (editing) editDescription = it else draftViewModel.changeDescription(it)
+                                clearError("description") }, enabled = !busy, minLines = 3,
+                            errorText = errors["description"],
+                            isFirstError = firstError == "description", submitVersion = submitVersion)
+                        AppValidationAnchor(firstError == "category", submitVersion) {
+                            AppDropdownField("Kategori barang *", foundCategories, handover.category,
+                                onSelect = {
+                                    if (editing) editCategory = it else draftViewModel.changeCategory(it)
+                                    clearError("category")
+                                }, enabled = !busy, errorText = errors["category"])
+                        }
+                    }
+                    AppSectionCard("Lokasi dan waktu penemuan") {
+                        FoundFormField("Lokasi penemuan *", "Contoh: Kantin Gedung A lantai 1",
+                            location, {
+                                if (editing) editLocation = it else draftViewModel.changeLocation(it)
+                                clearError("location")
+                            }, enabled = !busy, errorText = errors["location"],
+                            isFirstError = firstError == "location", submitVersion = submitVersion)
+                        AppValidationAnchor(firstError == "date", submitVersion) {
+                            AppDatePickerField("Tanggal ditemukan *", date,
+                                onValueChange = {
+                                    if (editing) editDate = it else draftViewModel.changeFoundAt(it)
+                                    clearError("date")
+                                }, enabled = !busy, errorText = errors["date"])
+                        }
+                        FoundFormField("Kampus *", "Contoh: Universitas Brawijaya",
+                            handover.campus, {
+                                if (editing) editCampus = it else draftViewModel.changeCampus(it)
+                                clearError("campus")
+                            }, enabled = !busy, errorText = errors["campus"],
+                            isFirstError = firstError == "campus", submitVersion = submitVersion)
+                    }
+                    AppSectionCard("Informasi penyimpanan") {
+                        AppValidationAnchor(firstError == "custody", submitVersion) {
+                            AppDropdownField("Barang disimpan oleh *", custodyTypes, handover.custodyType,
+                                onSelect = {
+                                    if (editing) editCustody = it else draftViewModel.changeCustodyType(it)
+                                    clearError("custody")
+                                }, enabled = !busy, errorText = errors["custody"])
+                        }
+                        FoundFormField("Lokasi pengambilan *", "Contoh: Pos keamanan Gedung A",
+                            handover.pickupLocation, {
+                                if (editing) editPickup = it else draftViewModel.changePickupLocation(it)
+                                clearError("pickup")
+                            }, enabled = !busy, errorText = errors["pickup"],
+                            isFirstError = firstError == "pickup", submitVersion = submitVersion,
+                            hint = "Gunakan lokasi umum di kampus, bukan alamat rumah.")
+                        FoundFormField("Petunjuk pengambilan (opsional)",
+                            "Jam operasional dan bukti kepemilikan",
+                            handover.pickupNotes, {
+                                if (editing) editNotes = it else draftViewModel.changePickupNotes(it)
+                                clearError("notes")
+                            }, enabled = !busy, minLines = 2, errorText = errors["notes"],
+                            isFirstError = firstError == "notes", submitVersion = submitVersion)
+                    }
+                    AppSectionCard(if (editing) "Foto dan status barang" else "Foto barang *") {
+                        if (!editing) {
+                            Text("Foto barang wajib diunggah (JPG, PNG, atau WEBP, maksimal 5 MB).",
+                                style = MaterialTheme.typography.bodyMedium)
+                            AppValidationAnchor(firstError == "photo", submitVersion) {
+                                AppPhotoPicker(
+                                    hasPhoto = photoUri != null, required = true,
+                                    showError = errors["photo"] != null,
+                                    enabled = !busy,
+                                    onGallery = onLaunchGallery, onCamera = onLaunchCamera,
+                                    onRemove = if (photoUri != null) draftViewModel::clearSelectedPhoto else null,
+                                    message = photoMessage,
+                                    preview = {
+                                        if (photoUri != null) {
+                                            FoundPhoto(photoUri.toString(),
+                                                Modifier.fillMaxWidth().height(190.dp))
+                                        }
+                                    }
+                                )
+                            }
+                            if (pendingCamera != null) {
+                                Text("Memproses foto dari kamera...",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            FoundPhoto(viewModel.photoUrl(item?.imagePath),
+                                Modifier.fillMaxWidth().height(190.dp))
+                            AppValidationAnchor(firstError == "status", submitVersion) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FoundChoiceRow(
+                                    "Status barang",
+                                    listOf("open", "closed")
+                                        .associateWith { it.foundStatusLabel() },
+                                    editStatus, { editStatus = it; clearError("status") },
+                                    enabled = !busy
+                                )
+                                errors["status"]?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error)
+                                }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            Text("Format: JPG, PNG, WEBP. Foto kamera yang terlalu besar akan diperkecil.",
-                style = MaterialTheme.typography.bodySmall)
-        } else {
-            Text("Foto tetap menggunakan foto saat laporan pertama dibuat.",
-                style = MaterialTheme.typography.bodySmall)
-            FoundPhoto(viewModel.photoUrl(item?.imagePath), Modifier.fillMaxWidth().height(180.dp))
-            Text("Status barang", style = MaterialTheme.typography.titleSmall)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                listOf("open", "returned", "closed").forEach { choice ->
-                    FilterChip(
-                        selected = status == choice,
-                        onClick = { status = choice },
-                        label = { Text(choice.foundStatusLabel()) },
-                        enabled = !state.isSaving
+
+            if (canEdit && (!editing || item != null)) {
+                Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
+                    GradientPrimaryButton(
+                        text = if (editing) "Simpan Perubahan" else "Kirim Laporan",
+                        enabled = !busy, loading = state.isSaving,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        onClick = {
+                            val foundErrors = ReportValidation.found(
+                                title, description, location, date, handover,
+                                if (editing) editStatus else "open",
+                                hasPhoto = editing || photoUri != null
+                            )
+                            errors = foundErrors
+                            firstError = foundErrors.keys.firstOrNull()
+                            if (foundErrors.isNotEmpty()) {
+                                submitVersion++
+                            } else {
+                                viewModel.clearMessage()
+                                if (editing) {
+                                    viewModel.edit(itemId!!, title, description, location, date,
+                                        editStatus, handover, onSaved)
+                                } else {
+                                    viewModel.create(title, description, location, date,
+                                        photoUri, handover) {
+                                        draftViewModel.clearAfterSuccessfulSave()
+                                        onSaved()
+                                    }
+                                }
+                            }
+                        }
                     )
                 }
             }
         }
-
-        GradientPrimaryButton(
-            text = if (editing) "Simpan Perubahan" else "Kirim Laporan",
-            enabled = !state.isSaving && pendingCameraUri == null,
-            loading = state.isSaving,
-            onClick = {
-                viewModel.clearMessage()
-                if (editing) {
-                    viewModel.edit(itemId!!, title, description, location, foundAt, status, onSaved)
-                } else {
-                    viewModel.create(title, description, location, foundAt, photoUri) {
-                        draftViewModel.clearAfterSuccessfulSave()
-                        onSaved()
-                    }
-                }
-            }
-        )
     }
 }

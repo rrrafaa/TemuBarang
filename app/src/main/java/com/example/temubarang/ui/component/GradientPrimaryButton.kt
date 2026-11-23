@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -15,6 +17,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.ui.theme.BrandGradient
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSizes
 
 @Composable
 fun GradientPrimaryButton(
@@ -22,16 +26,17 @@ fun GradientPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    loading: Boolean = false
+    loading: Boolean = false,
+    leadingIcon: (@Composable () -> Unit)? = null
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(AppRadius.button)
     val brush = if (enabled && !loading) BrandGradient else Brush.horizontalGradient(
         listOf(Color(0xFFA0ACBF), Color(0xFFB4BFCE))
     )
     Button(
         onClick = onClick,
         enabled = enabled && !loading,
-        modifier = modifier.fillMaxWidth().height(54.dp).background(brush, shape),
+        modifier = modifier.fillMaxWidth().height(AppSizes.button).background(brush, shape),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,
@@ -48,6 +53,10 @@ fun GradientPrimaryButton(
                 color = Color.White
             )
         } else {
+            if (leadingIcon != null) {
+                leadingIcon()
+                Spacer(Modifier.width(8.dp))
+            }
             Text(text = text)
         }
     }

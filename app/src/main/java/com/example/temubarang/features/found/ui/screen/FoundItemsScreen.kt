@@ -1,75 +1,91 @@
 package com.example.temubarang.features.found.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.R
+import com.example.temubarang.features.found.model.filterFoundItems
 import com.example.temubarang.features.found.ui.component.FoundItemCard
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.found.viewmodel.FoundItemsViewModel
+import com.example.temubarang.ui.component.AppPage
+import com.example.temubarang.ui.component.AppIcon
 import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.component.AppSearchBar
+import com.example.temubarang.ui.component.AppFilterChip
+import androidx.compose.ui.graphics.Color
 import com.example.temubarang.ui.theme.BrandBackground
-import com.example.temubarang.ui.theme.BrandNavy
 
 @Composable
 fun FoundItemsScreen(
     viewModel: FoundItemsViewModel,
+    lostViewModel: com.example.temubarang.features.lost.viewmodel.LostItemsViewModel,
+    showRecovery: Boolean,
+    onTabChanged: (Boolean) -> Unit,
+    onRecoveryDetail: (String) -> Unit,
     onBack: () -> Unit,
     onCreate: () -> Unit,
     onDetail: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    var publicQuery by rememberSaveable { mutableStateOf("") }
+    var recoveryQuery by rememberSaveable { mutableStateOf("") }
+    val query = if (showRecovery) recoveryQuery else publicQuery
+    var onlyOpen by rememberSaveable { mutableStateOf(true) }
+    var onlyMine by rememberSaveable { mutableStateOf(false) }
+    val visible = filterFoundItems(state.items, query, onlyOpen, onlyMine, viewModel.userId)
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(BrandBackground).statusBarsPadding().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = onBack) { Text("← Beranda") }
-            TextButton(onClick = viewModel::refresh, enabled = !state.isLoading) { Text("Muat ulang") }
-        }
-        Text("Barang Ditemukan", style = MaterialTheme.typography.headlineMedium, color = BrandNavy)
-        Text("Temukan laporan barang yang diserahkan oleh warga.")
-        GradientPrimaryButton(text = "+ Tambah Laporan", onClick = {
-            viewModel.clearMessage()
-            onCreate()
-        })
-        FoundMessage(state.error)
-        FoundMessage(state.notice, isError = false)
-        if (state.isLoading && state.items.isEmpty()) {
-            CircularProgressIndicator()
-        } else if (state.items.isEmpty()) {
-            Text("Belum ada laporan barang ditemukan. Kamu dapat membuat laporan pertama.")
-        } else {
-            Text("${state.items.size} laporan", style = MaterialTheme.typography.labelMedium)
+    AppPage("Barang Ditemukan", onBack = onBack, onRefresh = if (showRecovery) null else viewModel::refresh, refreshing = !showRecovery && state.isLoading) {
+        Column(Modifier.fillMaxSize()) {
+            AppSearchBar(value = query, onValueChange = { if (showRecovery) recoveryQuery = it else publicQuery = it },
+                placeholder = if (showRecovery) "Cari konfirmasi temuan" else "Cari barang, kampus, atau lokasi",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            TabRow(selectedTabIndex = if (showRecovery) 1 else 0) {
+                Tab(selected = !showRecovery, onClick = { onTabChanged(false) }, text = { Text("Laporan Publik") })
+                Tab(selected = showRecovery, onClick = { onTabChanged(true) }, text = { Text("Konfirmasi Temuan") })
+            }
+            if (showRecovery) {
+                RecoveryHistory(lostViewModel, query, onRecoveryDetail)
+                return@Column
+            }
+            // The list owns scrolling; the primary action stays above the parent navbar.
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                items(state.items, key = { it.id }) { item ->
-                    FoundItemCard(item, viewModel.photoUrl(item.imagePath)) {
-                        viewModel.clearMessage()
-                        onDetail(item.id)
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppFilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = "Tersedia")
+                        AppFilterChip(onlyMine, { onlyMine = !onlyMine }, label = "Laporan Saya")
                     }
                 }
+                item { FoundMessage(state.error); FoundMessage(state.notice, isError = false) }
+                if (state.isLoading && state.items.isEmpty()) item { CircularProgressIndicator() }
+                else if (visible.isEmpty()) item { Text("Tidak ada laporan yang cocok. Coba ubah pencarian atau filter.") }
+                else {
+                    item { Text("${visible.size} laporan", style = MaterialTheme.typography.labelMedium) }
+                    items(visible, key = { it.id }) { item ->
+                        FoundItemCard(item, viewModel.photoUrl(item.imagePath), item.reporterId == viewModel.userId) {
+                            viewModel.clearMessage()
+                            onDetail(item.id)
+                        }
+                    }
+                }
+            }
+            Surface(color = Color.Transparent) {
+                GradientPrimaryButton(
+                    text = "Tambah Laporan", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    leadingIcon = { AppIcon(R.drawable.ic_circle_plus_duotone, null) },
+                    onClick = { viewModel.clearMessage(); onCreate() }
+                )
             }
         }
     }

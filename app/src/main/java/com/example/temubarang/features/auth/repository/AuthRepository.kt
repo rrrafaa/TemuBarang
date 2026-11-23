@@ -12,6 +12,7 @@ import kotlinx.serialization.json.put
 
 /** Repository berinteraksi dengan Supabase Auth (bukan tabel public.users). */
 class AuthRepository(private val client: SupabaseClient) {
+    fun currentUserId(): String? = client.auth.currentUserOrNull()?.id
     val sessionStatus: Flow<SessionStatus> get() = client.auth.sessionStatus
 
     suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {

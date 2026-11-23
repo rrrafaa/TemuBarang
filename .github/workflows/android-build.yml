@@ -1,0 +1,37 @@
+name: Android build and unit tests
+
+on:
+  push:
+    branches: [feature/found-items]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # GitHub-hosted ubuntu-latest sudah memiliki command-line Android SDK.
+      # Hindari setup-android v3 yang mencoba memasang paket SDK "tools" usang.
+      - name: Install Android API 36
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER" || { echo "Android sdkmanager tidak tersedia"; exit 1; }
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile app and run local unit tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --stacktrace

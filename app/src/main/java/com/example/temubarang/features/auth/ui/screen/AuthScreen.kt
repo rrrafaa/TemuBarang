@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.features.auth.model.AuthUiState
+import com.example.temubarang.features.auth.model.AuthValidator
 import com.example.temubarang.features.auth.ui.component.EmailField
 import com.example.temubarang.features.auth.ui.component.NameField
 import com.example.temubarang.features.auth.ui.component.PasswordField
@@ -51,10 +52,18 @@ fun AuthScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmation by rememberSaveable { mutableStateOf("") }
+    var errors by androidx.compose.runtime.remember {
+        mutableStateOf<Map<String, String>>(emptyMap())
+    }
+    var firstError by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
+    var submitVersion by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    fun clearFieldError(key: String) { errors = errors - key }
 
     LaunchedEffect(state.registrationComplete) {
         if (state.registrationComplete) {
             isRegister = false
+            errors = emptyMap()
+            firstError = null
             password = ""
             confirmation = ""
             onRegistrationHandled()
@@ -96,13 +105,26 @@ fun AuthScreen(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (isRegister) NameField(name, { name = it; onClearMessage() }, !state.isSubmitting)
-                EmailField(email, { email = it; onClearMessage() }, !state.isSubmitting)
-                PasswordField(password, { password = it; onClearMessage() }, enabled = !state.isSubmitting)
-                if (isRegister) PasswordField(
-                    confirmation, { confirmation = it; onClearMessage() },
-                    label = "Konfirmasi password", enabled = !state.isSubmitting
-                )
+                if (isRegister) NameField(name, {
+                    name = it; clearFieldError("name"); onClearMessage()
+                }, enabled = !state.isSubmitting,
+                    errorText = errors["name"], isFirstError = firstError == "name",
+                    submitVersion = submitVersion)
+                EmailField(email, {
+                    email = it; clearFieldError("email"); onClearMessage()
+                }, enabled = !state.isSubmitting,
+                    errorText = errors["email"], isFirstError = firstError == "email",
+                    submitVersion = submitVersion)
+                PasswordField(password, {
+                    password = it; clearFieldError("password"); onClearMessage()
+                }, enabled = !state.isSubmitting,
+                    errorText = errors["password"], isFirstError = firstError == "password",
+                    submitVersion = submitVersion)
+                if (isRegister) PasswordField(confirmation, {
+                    confirmation = it; clearFieldError("confirmation"); onClearMessage()
+                }, label = "Konfirmasi password", enabled = !state.isSubmitting,
+                    errorText = errors["confirmation"], isFirstError = firstError == "confirmation",
+                    submitVersion = submitVersion)
 
                 // Error atau sukses langsung tampil dalam card tanpa harus membuka Logcat.
                 state.error?.let { FeedbackBanner(message = it, isError = true) }
@@ -114,13 +136,22 @@ fun AuthScreen(
                     enabled = !state.isSubmitting,
                     loading = state.isSubmitting,
                     onClick = {
-                        if (isRegister) onRegister(name, email, password, confirmation)
+                        val found = if (isRegister) AuthValidator.validateRegisterFields(
+                            name, email, password, confirmation
+                        ) else AuthValidator.validateLoginFields(email, password)
+                        errors = found
+                        firstError = found.keys.firstOrNull()
+                        if (found.isNotEmpty()) {
+                            submitVersion++
+                        } else if (isRegister) onRegister(name, email, password, confirmation)
                         else onLogin(email, password)
                     }
                 )
                 TextButton(
                     onClick = {
                         isRegister = !isRegister
+                        errors = emptyMap()
+                        firstError = null
                         password = ""
                         confirmation = ""
                         onClearMessage()

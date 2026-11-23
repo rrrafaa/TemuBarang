@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.temubarang.features.lost.model.LostItem
 import com.example.temubarang.features.lost.model.lostStatusLabel
+import com.example.temubarang.ui.component.AppStatusBadge
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSizes
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
 import com.example.temubarang.ui.theme.BrandSoftMint
@@ -65,31 +68,25 @@ fun LostPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LostItemCard(item: LostItem, photoUrl: String?, onClick: () -> Unit) {
+fun LostItemCard(item: LostItem, photoUrl: String?, isMine: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.card)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LostPhoto(photoUrl, Modifier.size(96.dp))
+            LostPhoto(photoUrl, Modifier.size(AppSizes.previewPhoto))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
                 Text(item.lastSeenLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Hilang: ${item.lostAt}", style = MaterialTheme.typography.bodySmall)
-                Surface(shape = RoundedCornerShape(8.dp), color = BrandSoftMint) {
-                    Text(
-                        item.status.lostStatusLabel(),
-                        color = BrandNavy,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(6.dp)
-                    )
-                }
+                if (isMine) Text("Milik Saya", style = MaterialTheme.typography.labelSmall)
+                AppStatusBadge(item.status.lostStatusLabel(), positive = item.status == "found")
             }
         }
     }

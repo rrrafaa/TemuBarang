@@ -11,7 +11,14 @@ import com.example.temubarang.features.lost.model.LostStatusChange
 import com.example.temubarang.features.lost.model.NewLostItem
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import com.example.temubarang.features.lost.model.RecoveryRequest
+import com.example.temubarang.features.lost.model.RecoverySubmission
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
@@ -37,12 +44,44 @@ class LostItemRepository(
     private fun requireUserId(): String = signedInUserId()
         ?: throw IllegalStateException("Sesi belum tersedia. Silakan login terlebih dahulu.")
 
-    suspend fun listMine(): List<LostItem> = withContext(Dispatchers.IO) {
-        val userId = requireUserId()
+    suspend fun list(): List<LostItem> = withContext(Dispatchers.IO) {
+        requireUserId()
         client.from(TABLE).select {
-            filter { eq("reporter_id", userId) }
             order(column = "created_at", order = Order.DESCENDING)
         }.decodeList<LostItem>()
+    }
+
+    suspend fun get(id: String): LostItem = withContext(Dispatchers.IO) {
+        requireUserId()
+        client.from(TABLE).select { filter { eq("id", id) } }.decodeSingle<LostItem>()
+    }
+
+    suspend fun listRecovery(): List<RecoveryRequest> = withContext(Dispatchers.IO) {
+        client.from("recovery_requests").select {
+            order(column = "created_at", order = Order.DESCENDING)
+        }.decodeList<RecoveryRequest>()
+    }
+
+    private var uploadedRecoveryPhoto: String? = null
+
+    suspend fun submitRecovery(submission: RecoverySubmission, photo: Uri?) = withContext(Dispatchers.IO) {
+        val userId = requireUserId()
+        val path = "$userId/${submission.id}.jpg"
+        if (photo != null && uploadedRecoveryPhoto != path) {
+            client.storage.from("recovery-evidence").upload(path, compressToJpeg(photo)) {
+                contentType = ContentType.Image.JPEG
+                upsert = false
+            }
+            uploadedRecoveryPhoto = path
+        }
+        client.postgrest.rpc("submit_recovery_request", Json.encodeToJsonElement(RecoverySubmission.serializer(), submission).jsonObject)
+    }
+
+    suspend fun reviewRecovery(id: String, status: String) = withContext(Dispatchers.IO) {
+        client.postgrest.rpc("review_recovery_request", buildJsonObject {
+            put("p_id", id)
+            put("p_status", status)
+        })
     }
 
     suspend fun create(
@@ -55,7 +94,7 @@ class LostItemRepository(
         val userId = requireUserId()
         val path = imageUri?.let { uploadPhoto(userId, it) }
         try {
-            client.from(TABLE).insert(
+            val inserted = client.from(TABLE).insert(
                 NewLostItem(
                     reporterId = userId,
                     title = title.trim(),
@@ -64,82 +103,80 @@ class LostItemRepository(
                     lostAt = date.trim(),
                     imagePath = path
                 )
-            )
+            ) { select() }.decodeList<LostItem>().singleOrNull()
+            check(inserted != null) {
+                "Laporan belum tersimpan. Periksa izin pengguna dan koneksi database."
+            }
+            inserted
         } catch (e: Exception) {
             // Jangan meninggalkan foto yatim bila baris database gagal disimpan.
             if (path != null) runCatching { client.storage.from(BUCKET).delete(path) }
             throw e
         }
-        Unit
     }
 
     suspend fun updateStatus(id: String, status: String) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         require(status in setOf("open", "found", "closed")) { "Status laporan tidak valid." }
-        client.from(TABLE).update(LostStatusChange(status)) {
+        val updated = client.from(TABLE).update(LostStatusChange(status)) {
             filter {
                 eq("id", id)
                 eq("reporter_id", userId)
             }
-        }
-        Unit
+            select()
+        }.decodeList<LostItem>().singleOrNull()
+        check(updated != null) { "Status tidak berubah. Laporan mungkin sudah dihapus atau akses ditolak." }
+        updated
     }
 
     suspend fun update(
-        id: String,
-        title: String,
-        description: String,
-        location: String,
-        date: String,
-        newImageUri: Uri?,
-        oldImagePath: String?
-    ) = withContext(Dispatchers.IO) {
+        id: String, title: String, description: String,
+        location: String, date: String, newImageUri: Uri?, oldImagePath: String?
+    ): LostItem = withContext(Dispatchers.IO) {
         val userId = requireUserId()
         if (newImageUri == null) {
             client.from(TABLE).update(
                 LostItemChanges(title.trim(), description.trim(), location.trim(), date.trim())
             ) {
-                filter {
-                    eq("id", id)
-                    eq("reporter_id", userId)
-                }
-            }
+                filter { eq("id", id); eq("reporter_id", userId) }
+                select()
+            }.decodeList<LostItem>().singleOrNull()
+                ?: throw IllegalStateException("Perubahan laporan tidak tersimpan. Periksa akses laporan.")
         } else {
             val newPath = uploadPhoto(userId, newImageUri)
-            try {
+            val updated = try {
                 client.from(TABLE).update(
-                    LostItemChangesWithPhoto(
-                        title.trim(), description.trim(), location.trim(), date.trim(), newPath
-                    )
+                    LostItemChangesWithPhoto(title.trim(), description.trim(), location.trim(), date.trim(), newPath)
                 ) {
-                    filter {
-                        eq("id", id)
-                        eq("reporter_id", userId)
-                    }
-                }
+                    filter { eq("id", id); eq("reporter_id", userId) }
+                    select()
+                }.decodeList<LostItem>().singleOrNull()
+                    ?: throw IllegalStateException("Perubahan foto belum tersimpan. Periksa akses laporan.")
             } catch (e: Exception) {
                 runCatching { client.storage.from(BUCKET).delete(newPath) }
                 throw e
             }
-            // Foto lama dibuang setelah database berhasil memakai foto baru.
             if (!oldImagePath.isNullOrBlank()) {
                 runCatching { client.storage.from(BUCKET).delete(oldImagePath) }
             }
+            updated
         }
-        Unit
     }
 
     suspend fun delete(id: String, imagePath: String?) = withContext(Dispatchers.IO) {
         val userId = requireUserId()
-        client.from(TABLE).delete {
+        val deleted = client.from(TABLE).delete {
             filter {
                 eq("id", id)
                 eq("reporter_id", userId)
             }
-        }
+            select()
+        }.decodeList<LostItem>().singleOrNull()
+        check(deleted != null) { "Laporan tidak terhapus. Periksa akses dan status laporan." }
 
-        if (!imagePath.isNullOrBlank()) {
-            runCatching { client.storage.from(BUCKET).delete(imagePath) }
+        val savedPhotoPath = deleted.imagePath?.takeIf { it.startsWith("$userId/lost/") }
+        if (savedPhotoPath != null) {
+            runCatching { client.storage.from(BUCKET).delete(savedPhotoPath) }
         }
         Unit
     }

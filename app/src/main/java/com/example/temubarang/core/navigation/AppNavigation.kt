@@ -1,16 +1,19 @@
 package com.example.temubarang.core.navigation
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppNavigationItem
+import com.example.temubarang.ui.component.AppBottomNavigation
 import android.app.Application
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,8 +33,12 @@ import com.example.temubarang.features.home.viewmodel.HomeViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemsScreen
 import com.example.temubarang.features.lost.ui.screen.LostItemFormScreen
 import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
+import com.example.temubarang.features.lost.viewmodel.LostDraftViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemDetailScreen
 import com.example.temubarang.ui.theme.BrandBackground
+
+import com.example.temubarang.features.profile.ui.screen.ProfileScreen
+import com.example.temubarang.features.profile.viewmodel.ProfileViewModel
 
 object AppRoute {
     const val HOME = "home"
@@ -43,15 +50,16 @@ object AppRoute {
     const val FOUND_CREATE = "found_items/new"
     const val FOUND_DETAIL = "found_items/detail"
     const val FOUND_EDIT = "found_items/edit"
+    const val PROFILE = "profile"
     const val CLAIMS = "claims"
 }
 
-private data class MainTab(val route: String, val label: String, val symbol: String)
 private val mainTabs = listOf(
-    MainTab(AppRoute.HOME, "Beranda", "⌂"),
-    MainTab(AppRoute.LOST, "Hilang", "⌕"),
-    MainTab(AppRoute.FOUND, "Ditemukan", "▣"),
-    MainTab(AppRoute.CLAIMS, "Klaim", "✓")
+    AppNavigationItem(AppRoute.HOME, "Beranda", R.drawable.ic_house_duotone),
+    AppNavigationItem(AppRoute.LOST, "Hilang", R.drawable.ic_search_duotone),
+    AppNavigationItem(AppRoute.FOUND, "Ditemukan", R.drawable.ic_package_check_duotone),
+    AppNavigationItem(AppRoute.CLAIMS, "Klaim", R.drawable.ic_clipboard_check_duotone),
+    AppNavigationItem(AppRoute.PROFILE, "Profil", R.drawable.ic_user_round_duotone)
 )
 
 /**
@@ -64,17 +72,41 @@ fun AuthenticatedNavigation(
     authState: AuthUiState,
     navController: NavHostController,
     foundDraftViewModel: FoundDraftViewModel,
+    lostDraftViewModel: LostDraftViewModel,
+    onLaunchLostCamera: (String?) -> Unit,
+    onLaunchLostGallery: (String?) -> Unit,
     onLaunchCamera: () -> Unit,
     onLaunchGallery: () -> Unit,
     onLogout: () -> Unit
 ) {
     val application = LocalContext.current.applicationContext as Application
-    val foundVm: FoundItemsViewModel = viewModel(factory = FoundItemsViewModel.factory(application))
-    val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
-    val lostVm: LostItemsViewModel = viewModel(factory = LostItemsViewModel.factory(application))
+    val foundVm: FoundItemsViewModel = viewModel(key = "found:${authState.userId}", factory = FoundItemsViewModel.factory(application))
+    val homeVm: HomeViewModel = viewModel(key = "home:${authState.userId}", factory = HomeViewModel.Factory)
+    val profileVm: ProfileViewModel = viewModel(key = "profile:${authState.userId}", factory = ProfileViewModel.Factory)
+    val profileState by profileVm.state.collectAsState()
+    val foundState by foundVm.uiState.collectAsState()
+    LaunchedEffect(foundState.revision) {
+        if (foundState.revision > 0) homeVm.refresh()
+    }
+    val lostVm: LostItemsViewModel = viewModel(key = "lost:${authState.userId}",
+        factory = LostItemsViewModel.factory(application))
+    var showRecovery by rememberSaveable(authState.userId) { mutableStateOf(false) }
+    val lostState by lostVm.uiState.collectAsState()
+    // Keberhasilan dan kesalahan laporan ditampilkan sekali melalui banner pada screen.
+    // State di ViewModel tetap bertahan ketika berpindah dari form ke halaman daftar.
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
+    // Satu jalur navigasi untuk tombol Beranda dan seluruh tab, tanpa menumpuk destinasi.
+    val openMainTab: (String) -> Unit = { route ->
+        if (currentRoute != route) {
+            navController.navigate(route) {
+                popUpTo(AppRoute.HOME) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
     val cameraReturnPending by foundDraftViewModel.returnToForm.collectAsState()
 
     // Setelah kamera menutup, kembalikan screen form. Jika Activity/Process mati saat
@@ -89,30 +121,31 @@ fun AuthenticatedNavigation(
         }
     }
 
+    val lostReturnPending by lostDraftViewModel.returnToForm.collectAsState()
+    val lostReturnRoute by lostDraftViewModel.returnRoute.collectAsState()
+    LaunchedEffect(lostReturnPending, lostReturnRoute, currentRoute) {
+        if (lostReturnPending && currentRoute != null) {
+            if (currentRoute != lostReturnRoute) {
+                navController.navigate(lostReturnRoute) { launchSingleTop = true }
+            }
+            lostDraftViewModel.acknowledgeReturn()
+        }
+    }
+
+    // Setelah simpan sukses, hapus form/detail dari back stack (jangan restore state lama).
+    val finishReportAction: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(AppRoute.HOME) { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
     Scaffold(
         containerColor = BrandBackground,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onMainTab) {
-                NavigationBar {
-                    mainTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = {
-                                if (currentRoute != tab.route) {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(AppRoute.HOME) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            icon = { Text(tab.symbol) },
-                            label = { Text(tab.label) },
-                            alwaysShowLabel = true
-                        )
-                    }
-                }
+                AppBottomNavigation(mainTabs, currentRoute, onSelect = openMainTab)
             }
         }
     ) { innerPadding ->
@@ -124,10 +157,10 @@ fun AuthenticatedNavigation(
             composable(AppRoute.HOME) {
                 HomeScreen(
                     viewModel = homeVm,
-                    onOpenLost = { navController.navigate(AppRoute.LOST) },
-                    onOpenFound = { navController.navigate(AppRoute.FOUND) },
-                    onLogout = onLogout,
-                    isLoggingOut = authState.isSubmitting,
+                    userName = profileState.profile?.displayName.orEmpty(),
+                    onLostDetail = { navController.navigate("${AppRoute.LOST_DETAIL}/$it") },
+                    onOpenFound = { openMainTab(AppRoute.FOUND) },
+                    onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
                     errorMessage = authState.error
                 )
             }
@@ -145,9 +178,12 @@ fun AuthenticatedNavigation(
             composable(AppRoute.LOST_CREATE) {
                 LostItemFormScreen(
                     viewModel = lostVm,
+                    draftViewModel = lostDraftViewModel,
+                    onLaunchCamera = { onLaunchLostCamera(null) },
+                    onLaunchGallery = { onLaunchLostGallery(null) },
                     itemId = null,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
@@ -157,7 +193,9 @@ fun AuthenticatedNavigation(
                     viewModel = lostVm,
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") }
+                    onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") },
+                    onRecovery = { navController.navigate("recovery/new/$it") },
+                    onStatusUpdated = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
@@ -165,15 +203,22 @@ fun AuthenticatedNavigation(
                 val id = entry.arguments?.getString("itemId") ?: return@composable
                 LostItemFormScreen(
                     viewModel = lostVm,
+                    draftViewModel = lostDraftViewModel,
+                    onLaunchCamera = { onLaunchLostCamera(id) },
+                    onLaunchGallery = { onLaunchLostGallery(id) },
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
             composable(AppRoute.FOUND) {
                 FoundItemsScreen(
                     viewModel = foundVm,
+                    lostViewModel = lostVm,
+                    showRecovery = showRecovery,
+                    onTabChanged = { showRecovery = it },
+                    onRecoveryDetail = { navController.navigate("recovery/detail/$it") },
                     onBack = { navController.navigate(AppRoute.HOME) {
                         popUpTo(AppRoute.HOME) { inclusive = false }
                         launchSingleTop = true
@@ -189,7 +234,7 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { finishReportAction(AppRoute.FOUND) }
                 )
             }
             composable("${AppRoute.FOUND_DETAIL}/{itemId}") { entry ->
@@ -197,6 +242,8 @@ fun AuthenticatedNavigation(
                 FoundItemDetailScreen(
                     viewModel = foundVm, itemId = id,
                     onBack = { navController.popBackStack() },
+                    onClaim = { navController.navigate("${AppRoute.CLAIMS}/$it") },
+                    onManaged = { finishReportAction(AppRoute.FOUND) },
                     onEdit = { navController.navigate("${AppRoute.FOUND_EDIT}/$it") }
                 )
             }
@@ -208,7 +255,30 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() }
+                    onSaved = { finishReportAction(AppRoute.FOUND) }
+                )
+            }
+            composable(AppRoute.PROFILE) {
+                ProfileScreen(profileVm, onLogout, authState.isSubmitting, authState.error)
+            }
+            composable("${AppRoute.CLAIMS}/{foundItemId}") {
+                ClaimsScreen(onBack = { navController.popBackStack() })
+            }
+            composable("recovery/detail/{requestId}") { entry ->
+                val id = entry.arguments?.getString("requestId") ?: return@composable
+                com.example.temubarang.features.found.ui.screen.RecoveryDetailScreen(lostVm, id) {
+                    navController.popBackStack()
+                }
+            }
+            composable("recovery/new/{lostItemId}") { entry ->
+                val id = entry.arguments?.getString("lostItemId") ?: return@composable
+                com.example.temubarang.features.lost.ui.screen.RecoveryDraftScreen(
+                    viewModel = lostVm, itemId = id,
+                    onBack = { navController.popBackStack() },
+                    onSubmitted = {
+                        showRecovery = true
+                        finishReportAction(AppRoute.FOUND)
+                    }
                 )
             }
             composable(AppRoute.CLAIMS) {

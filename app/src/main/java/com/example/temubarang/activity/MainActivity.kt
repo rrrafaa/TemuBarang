@@ -6,8 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.enableEdgeToEdge
@@ -20,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
@@ -32,8 +32,10 @@ import com.example.temubarang.core.navigation.AuthenticatedNavigation
 import com.example.temubarang.core.supabase.SupabaseProvider
 import com.example.temubarang.features.auth.ui.screen.AuthScreen
 import com.example.temubarang.features.auth.viewmodel.AuthViewModel
+import com.example.temubarang.features.found.ui.camera.CameraPhotoContract
 import com.example.temubarang.features.found.ui.camera.CameraPhotoUri
 import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
+import com.example.temubarang.features.lost.viewmodel.LostDraftViewModel
 import com.example.temubarang.ui.theme.TemuBarangTheme
 
 class MainActivity : ComponentActivity() {
@@ -62,24 +64,17 @@ private fun TemuBarangRoot() {
 
     // Tetap dibuat di root, bukan dalam cabang auth. Karena itu NavController dan
     // callback hasil kamera dapat dipulihkan meskipun Activity direkreasi.
-    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    // Navigation and route SavedState must never be reused by another account.
+    val navController = key(authState.userId) { rememberNavController() }
     val context = LocalContext.current
     val draftViewModel: FoundDraftViewModel = viewModel()
+    val lostDraftViewModel: LostDraftViewModel = viewModel()
 
     // Registrasi ActivityResult berada DI LUAR cabang isInitializing/isAuthenticated.
     // Wajib selalu tersedia ketika Activity dibuat ulang sewaktu kamera aktif.
-    val cameraContract = remember { object : ActivityResultContracts.TakePicture() {
-            override fun createIntent(context: Context, input: Uri): Intent =
-                super.createIntent(context, input).apply {
-                    // Beberapa aplikasi kamera memerlukan izin URI eksplisit untuk
-                    // menulis ke FileProvider milik TemuBarang.
-                    clipData = ClipData.newRawUri("Foto TemuBarang", input)
-                    addFlags(
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                }
-        } }
+    val cameraContract = remember { CameraPhotoContract() }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = cameraContract
     ) { success ->
@@ -95,11 +90,24 @@ private fun TemuBarangRoot() {
         }
         draftViewModel.finishCameraCapture(photoReady)
     }
-    val galleryContract = remember { ActivityResultContracts.GetContent() }
+    // ACTION_OPEN_DOCUMENT memberi akses URI persisten setelah proses aplikasi direkreasi.
+    val galleryContract = remember { ActivityResultContracts.OpenDocument() }
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = galleryContract
     ) { uri ->
-        draftViewModel.finishGallerySelection(uri?.toString())
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                draftViewModel.finishGallerySelection(uri.toString())
+            } catch (e: SecurityException) {
+                android.util.Log.e("TemuBarangCamera", "Akses foto galeri tidak tersedia", e)
+                draftViewModel.cameraLaunchFailed("Izin membaca foto tidak tersedia. Pilih ulang dari galeri.")
+            }
+        } else {
+            draftViewModel.finishGallerySelection(null)
+        }
     }
 
     val openCamera: () -> Unit = {
@@ -119,21 +127,72 @@ private fun TemuBarangRoot() {
     val openGallery: () -> Unit = {
         try {
             draftViewModel.beginGallerySelection()
-            galleryLauncher.launch("image/*")
+            galleryLauncher.launch(arrayOf("image/*"))
         } catch (e: Exception) {
             android.util.Log.e("TemuBarangCamera", "Gagal membuka galeri", e)
             draftViewModel.cameraLaunchFailed("Galeri tidak dapat dibuka. Silakan coba lagi.")
         }
     }
 
-    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
-    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    // Launcher Lost berada di root agar callback tetap ada setelah Activity direkreasi.
+    val lostCameraLauncher = rememberLauncherForActivityResult(cameraContract) { success ->
+        val uri = lostDraftViewModel.pendingCameraUri.value?.let(Uri::parse)
+        val ready = uri != null && CameraPhotoUri.hasPhoto(context, uri)
+        if (!success && ready) android.util.Log.w("TemuBarangLost", "Kamera menulis foto walaupun hasil canceled")
+        lostDraftViewModel.finishCamera(ready)
+    }
+    val lostGalleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                lostDraftViewModel.finishGallery(uri.toString())
+            } catch (e: SecurityException) {
+                android.util.Log.e("TemuBarangLost", "Akses foto galeri tidak tersedia", e)
+                lostDraftViewModel.failedToLaunch("Izin membaca foto tidak tersedia. Pilih ulang dari galeri.")
+            }
+        } else {
+            lostDraftViewModel.finishGallery(null)
+        }
+    }
+    val openLostCamera: (String?) -> Unit = { id ->
+        try {
+            val uri = CameraPhotoUri.create(context)
+            lostDraftViewModel.beginCamera(uri.toString(), id)
+            lostCameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            android.util.Log.e("TemuBarangLost", "Gagal membuka kamera", e)
+            lostDraftViewModel.failedToLaunch("Kamera tidak dapat dibuka. Coba pilih foto dari galeri.")
+        }
+    }
+    val openLostGallery: (String?) -> Unit = { id ->
+        try {
+            lostDraftViewModel.beginGallery(id)
+            lostGalleryLauncher.launch(arrayOf("image/*"))
+        } catch (e: Exception) {
+            android.util.Log.e("TemuBarangLost", "Gagal membuka galeri", e)
+            lostDraftViewModel.failedToLaunch("Galeri tidak dapat dibuka. Coba lagi.")
+        }
+    }
+
+    LaunchedEffect(authState.isInitializing, authState.isAuthenticated) {
+        if (!authState.isInitializing && !authState.isAuthenticated) {
+            draftViewModel.clearAfterSuccessfulSave()
+            lostDraftViewModel.clearAfterSuccess()
+        }
+    }
     when {
         authState.isInitializing -> CenteredMessage("Memeriksa sesi pengguna...", loading = true)
         authState.isAuthenticated -> AuthenticatedNavigation(
             authState = authState,
             navController = navController,
             foundDraftViewModel = draftViewModel,
+            lostDraftViewModel = lostDraftViewModel,
+            onLaunchLostCamera = openLostCamera,
+            onLaunchLostGallery = openLostGallery,
             onLaunchCamera = openCamera,
             onLaunchGallery = openGallery,
             onLogout = authViewModel::logout

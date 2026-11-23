@@ -1,5 +1,7 @@
 package com.example.temubarang.features.found.ui.component
 
+import com.example.temubarang.R
+import com.example.temubarang.ui.component.AppIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.temubarang.features.found.model.FoundItem
 import com.example.temubarang.features.found.model.foundStatusLabel
+import com.example.temubarang.ui.component.AppStatusBadge
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSizes
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
 import com.example.temubarang.ui.theme.BrandSoftMint
@@ -50,7 +55,7 @@ fun FoundPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
     if (imageUrl.isNullOrBlank()) {
         Surface(color = Color(0xFFEBF2FD), shape = shape, modifier = modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("📦", style = MaterialTheme.typography.headlineMedium)
+                AppIcon(R.drawable.ic_package_duotone, null, Modifier.size(32.dp))
                 Text("Tanpa foto", color = BrandMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -65,27 +70,26 @@ fun FoundPhoto(imageUrl: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun FoundItemCard(item: FoundItem, photoUrl: String?, onClick: () -> Unit) {
+fun FoundItemCard(item: FoundItem, photoUrl: String?, isMine: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(AppRadius.card)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FoundPhoto(photoUrl, Modifier.size(96.dp))
+            FoundPhoto(photoUrl, Modifier.size(AppSizes.previewPhoto))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (isMine) Text("Milik Saya", style = MaterialTheme.typography.labelSmall)
                 Text(item.title, style = MaterialTheme.typography.titleMedium, color = BrandNavy)
+                if (item.campus.isNotBlank()) Text(item.campus, style = MaterialTheme.typography.labelMedium)
                 Text(item.foundLocation, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
                 Text("Ditemukan: ${item.foundAt}", style = MaterialTheme.typography.bodySmall)
-                Surface(shape = RoundedCornerShape(8.dp), color = BrandSoftMint) {
-                    Text(item.status.foundStatusLabel(), color = BrandNavy,
-                        style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(6.dp))
-                }
+                AppStatusBadge(item.status.foundStatusLabel(), positive = item.status == "open")
             }
         }
     }

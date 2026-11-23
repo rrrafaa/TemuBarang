@@ -4,12 +4,16 @@ import java.io.IOException
 
 object LostErrorMapper {
     fun describe(error: Exception): String {
-        val chain = generateSequence<Throwable>(error) { it.cause }
+        if ((error is IllegalArgumentException || error is IllegalStateException) &&
+            !error.message.isNullOrBlank()) return error.message!!
+        val chain = generateSequence<Throwable>(error) { it.cause }.toList()
         if (chain.any { it is IOException }) {
             return "Tidak bisa menghubungi server. Periksa koneksi internet, lalu coba lagi."
         }
         val all = chain.mapNotNull { it.message }.joinToString(" ").lowercase()
         return when {
+            "42703" in all || "42p01" in all || "pgrst205" in all ->
+                "Struktur database belum sesuai. Hubungi pengelola proyek TemuBarang."
             "jwt" in all || "401" in all || "unauthorized" in all ->
                 "Sesi login tidak berlaku. Silakan login kembali."
             "row level security" in all || "42501" in all || "permission denied" in all || "403" in all ->

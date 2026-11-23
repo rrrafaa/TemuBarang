@@ -43,6 +43,11 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.ui.component.AppValidatedTextField
+import com.example.temubarang.ui.component.AppSectionCard
+import com.example.temubarang.ui.component.AppPhotoPicker
+import com.example.temubarang.ui.component.AppDatePickerField
+import com.example.temubarang.ui.theme.AppRadius
 import com.example.temubarang.ui.theme.BrandBlue
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
@@ -56,7 +61,7 @@ import java.util.Locale
 /** Garis tepi putus-putus untuk area unggah file. */
 fun Modifier.dashedBorder(
     color: Color,
-    cornerRadius: Dp = 16.dp,
+    cornerRadius: Dp = AppRadius.field,
     strokeWidth: Dp = 1.5.dp
 ): Modifier = this.drawBehind {
     drawRoundRect(
@@ -76,30 +81,7 @@ fun FormSection(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(20.dp),
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = BrandNavy
-                )
-                if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
-                }
-            }
-            content()
-        }
-    }
+    AppSectionCard(title = title, subtitle = subtitle, content = content)
 }
 
 @Composable
@@ -112,22 +94,16 @@ fun FormTextField(
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     minLines: Int = 1,
-    imeAction: ImeAction = ImeAction.Next
+    imeAction: ImeAction = ImeAction.Next,
+    errorText: String? = null,
+    isFirstError: Boolean = false,
+    submitVersion: Int = 0
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        supportingText = { Text(hint) },
-        singleLine = singleLine,
-        minLines = minLines,
-        shape = RoundedCornerShape(14.dp),
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
-            imeAction = imeAction
-        ),
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth()
+    AppValidatedTextField(
+        value = value, onValueChange = onValueChange, label = label,
+        supportingText = hint, errorText = errorText, enabled = enabled,
+        singleLine = singleLine, minLines = minLines, imeAction = imeAction,
+        isFirstError = isFirstError, submitVersion = submitVersion
     )
 }
 
@@ -146,140 +122,33 @@ fun PhotoUploadField(
     onTakePhoto: () -> Unit,
     onRemove: (() -> Unit)?
 ) {
-    val errorColor = MaterialTheme.colorScheme.error
-    val borderColor = if (showError) errorColor else BrandBlue.copy(alpha = 0.55f)
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (previewUrl == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(170.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (showError) MaterialTheme.colorScheme.errorContainer else BrandSoftBlue)
-                    .dashedBorder(borderColor)
-                    .clickable(enabled = enabled, onClick = onPickFile),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("📤", style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        "Unggah foto barang",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = BrandNavy
-                    )
-                    Text(
-                        "Ketuk di sini untuk memilih file\nFormat JPG, PNG, atau WEBP",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = BrandMuted,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        } else {
-            LostPhoto(previewUrl, Modifier.fillMaxWidth().height(210.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onPickFile, enabled = enabled) { Text("Ganti foto") }
-                if (onRemove != null) {
-                    TextButton(
-                        onClick = onRemove,
-                        enabled = enabled,
-                        colors = ButtonDefaults.textButtonColors(contentColor = errorColor)
-                    ) { Text("Batalkan pilihan") }
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onTakePhoto, enabled = enabled) {
-                Text("📷  Atau ambil foto langsung")
-            }
-        }
-
-        if (showError) {
-            Text("Foto barang wajib diunggah.", color = errorColor, style = MaterialTheme.typography.bodySmall)
-        }
-        LostMessage(message)
-    }
+    AppPhotoPicker(
+        hasPhoto = previewUrl != null,
+        preview = {
+            if (previewUrl != null) LostPhoto(previewUrl, Modifier.fillMaxWidth().height(210.dp))
+        },
+        required = true,
+        showError = showError,
+        message = message,
+        enabled = enabled,
+        onGallery = onPickFile,
+        onCamera = onTakePhoto,
+        onRemove = onRemove
+    )
 }
 
 /**
  * Kolom tanggal yang membuka kalender, sehingga pengguna tidak perlu mengetik format manual.
  * Nilai tetap disimpan sebagai YYYY-MM-DD. Tanggal di masa depan tidak dapat dipilih.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorText: String? = null
 ) {
-    var open by remember { mutableStateOf(false) }
-    val display = remember(value) {
-        runCatching {
-            LocalDate.parse(value).format(
-                DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("id-ID"))
-            )
-        }.getOrDefault(value)
-    }
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = display,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            supportingText = { Text("Ketuk untuk memilih tanggal") },
-            trailingIcon = { Text("📅") },
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-        // Lapisan transparan agar ketukan di mana pun pada kolom membuka kalender.
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clickable(enabled = enabled) { open = true }
-        )
-    }
-
-    if (open) {
-        val todayUtcMillis = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        val initialMillis = runCatching {
-            LocalDate.parse(value).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        }.getOrNull()
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialMillis,
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                    utcTimeMillis <= todayUtcMillis
-            }
-        )
-        DatePickerDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        onValueChange(
-                            Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
-                        )
-                    }
-                    open = false
-                }) { Text("Pilih") }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Batal") } }
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerField(label, value, onValueChange, enabled, modifier, errorText)
 }
