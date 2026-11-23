@@ -212,6 +212,7 @@ fun AuthenticatedNavigation(
             composable(AppRoute.FOUND) {
                 FoundItemsScreen(
                     viewModel = foundVm,
+                    lostViewModel = lostVm,
                     onBack = { navController.navigate(AppRoute.HOME) {
                         popUpTo(AppRoute.HOME) { inclusive = false }
                         launchSingleTop = true

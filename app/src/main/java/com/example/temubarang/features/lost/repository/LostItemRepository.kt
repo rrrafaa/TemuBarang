@@ -11,7 +11,14 @@ import com.example.temubarang.features.lost.model.LostStatusChange
 import com.example.temubarang.features.lost.model.NewLostItem
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import com.example.temubarang.features.lost.model.RecoveryRequest
+import com.example.temubarang.features.lost.model.RecoverySubmission
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
@@ -47,6 +54,30 @@ class LostItemRepository(
     suspend fun get(id: String): LostItem = withContext(Dispatchers.IO) {
         requireUserId()
         client.from(TABLE).select { filter { eq("id", id) } }.decodeSingle<LostItem>()
+    }
+
+    suspend fun listRecovery(): List<RecoveryRequest> = withContext(Dispatchers.IO) {
+        client.from("recovery_requests").select {
+            order(column = "created_at", order = Order.DESCENDING)
+        }.decodeList<RecoveryRequest>()
+    }
+
+    suspend fun submitRecovery(submission: RecoverySubmission, photo: Uri?, uploadPhoto: Boolean) = withContext(Dispatchers.IO) {
+        val userId = requireUserId()
+        if (photo != null && uploadPhoto) {
+            client.storage.from("recovery-evidence").upload("$userId/${submission.id}.jpg", compressToJpeg(photo)) {
+                contentType = ContentType.Image.JPEG
+                upsert = false
+            }
+        }
+        client.postgrest.rpc("submit_recovery_request", Json.encodeToJsonElement(RecoverySubmission.serializer(), submission).jsonObject)
+    }
+
+    suspend fun reviewRecovery(id: String, status: String) = withContext(Dispatchers.IO) {
+        client.postgrest.rpc("review_recovery_request", buildJsonObject {
+            put("p_id", id)
+            put("p_status", status)
+        })
     }
 
     suspend fun create(

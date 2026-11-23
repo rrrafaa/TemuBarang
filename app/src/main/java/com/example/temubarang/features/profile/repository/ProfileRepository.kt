@@ -8,10 +8,14 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 class ProfileRepository(private val client: SupabaseClient) {
+    private val profileJson = Json { encodeDefaults = true }
+
     fun accountEmail(): String? = client.auth.currentUserOrNull()?.email
 
     private fun userId() = checkNotNull(client.auth.currentUserOrNull()?.id) { "Silakan login kembali." }
@@ -24,7 +28,7 @@ class ProfileRepository(private val client: SupabaseClient) {
 
     suspend fun save(profile: Profile): Profile = withContext(Dispatchers.IO) {
         require(profile.id == userId()) { "Profil hanya dapat diperbarui oleh pemiliknya." }
-        client.from("profiles").upsert(profile) { select() }.decodeSingle<Profile>()
+        client.from("profiles").upsert(profileJson.encodeToJsonElement(Profile.serializer(), profile).jsonObject) { select() }.decodeSingle<Profile>()
     }
 
     suspend fun reporter(foundItemId: String): ReporterProfile? = withContext(Dispatchers.IO) {

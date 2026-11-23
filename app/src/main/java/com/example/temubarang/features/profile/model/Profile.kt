@@ -10,7 +10,10 @@ data class Profile(
     val campus: String,
     @SerialName("contact_email") val contactEmail: String,
     val phone: String,
-    @SerialName("share_contact") val shareContact: Boolean
+    @SerialName("share_contact") val shareContact: Boolean,
+    @SerialName("affiliation_type") val affiliationType: String? = null,
+    @SerialName("faculty_or_unit") val facultyOrUnit: String? = null,
+    @SerialName("entry_year") val entryYear: Int? = null
 )
 
 /** RPC menyaring kontak di server, bukan hanya menyembunyikannya di UI. */
@@ -54,3 +57,8 @@ object ProfileValidator {
         return null
     }
 }
+
+val affiliationTypes = linkedMapOf(
+    "student" to "Mahasiswa", "lecturer" to "Dosen",
+    "staff" to "Tenaga Kependidikan", "campus_officer" to "Petugas Kampus"
+)

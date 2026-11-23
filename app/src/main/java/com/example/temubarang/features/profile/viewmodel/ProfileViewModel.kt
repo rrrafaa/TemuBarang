@@ -40,7 +40,7 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
         }
     }
 
-    fun save(name: String, campus: String, email: String, phone: String, share: Boolean) {
+    fun save(name: String, campus: String, email: String, phone: String, share: Boolean, type: String, unit: String, year: Int?) {
         val current = _state.value
         if (current.saving || current.loading || current.profile == null) return
         val error = ProfileValidator.validate(name, campus, email, phone, share)
@@ -48,7 +48,7 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
         _state.update { it.copy(saving = true, error = null, notice = null) }
         viewModelScope.launch {
             try {
-                val saved = repository.save(Profile(current.profile.id, name.trim(), campus.trim(), email.trim(), phone.trim(), share))
+                val saved = repository.save(Profile(current.profile.id, name.trim(), campus.trim(), email.trim(), phone.trim(), share, type, unit.trim(), year))
                 _state.update { it.copy(profile = saved, notice = "Profil berhasil disimpan.") }
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) { _state.update { it.copy(error = FoundErrorMapper.describe(e)) }

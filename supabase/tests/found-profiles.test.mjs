@@ -153,5 +153,40 @@ try {
   await test('owner can clean up their own uploaded photo', async () => {
     assert.equal((await db.query(`delete from storage.objects where name='${owner}/found/photo.jpg' returning id`)).rows.length, 1);
   });
+  await db.exec('reset role');
+  await db.exec(await read('../migrations/202611230003_profile_and_recovery_submission.sql'));
+  await test('affiliation validates student year and signup initializes contact', async () => {
+    const newUser = '00000000-0000-0000-0000-000000000005';
+    await db.exec(`insert into auth.users(id,email) values ('${newUser}','student@example.com')`);
+    await login(newUser);
+    const profile = (await db.query('select contact_email,share_contact from public.profiles')).rows[0];
+    assert.deepEqual(profile, {contact_email:'student@example.com',share_contact:false});
+    await rejects("update public.profiles set affiliation_type='student',faculty_or_unit='Teknik'", '23514');
+    await db.exec("update public.profiles set affiliation_type='student',faculty_or_unit='Teknik',entry_year=2024");
+  });
+  await test('private recovery locks Lost, rejects competing requests, and completes separately', async () => {
+    const lost = '10000000-0000-0000-0000-000000000099';
+    const first = '10000000-0000-0000-0000-000000000097';
+    const second = '10000000-0000-0000-0000-000000000098';
+    const submit = id => `select public.submit_recovery_request('${id}','${lost}','Kantin',now(),'Kondisi baik','Satpam','Pos Satpam','',false)`;
+    await login(owner);
+    await db.exec(`insert into public.lost_items(id,reporter_id,title,description,last_seen_location,lost_at)
+      values ('${lost}','${owner}','Kunci motor','Kunci motor merah','Kantin',current_date)`);
+    await rejects(submit(first), '42501');
+    await login(member);
+    await db.exec(submit(first));
+    await db.exec(submit(first));
+    await rejects(`select public.review_recovery_request('${first}','completed')`, '42501');
+    await login(stranger);
+    assert.equal((await db.query('select id from public.recovery_requests')).rows.length, 0);
+    await db.exec(submit(second));
+    await login(owner);
+    await rejects(`update public.lost_items set status='closed' where id='${lost}'`, '23514');
+    await db.exec(`select public.review_recovery_request('${first}','confirmed')`);
+    assert.equal((await db.query(`select status from public.lost_items where id='${lost}'`)).rows[0].status, 'open');
+    assert.equal((await db.query(`select status from public.recovery_requests where id='${second}'`)).rows[0].status, 'rejected');
+    await db.exec(`select public.review_recovery_request('${first}','completed')`);
+    assert.equal((await db.query(`select status from public.lost_items where id='${lost}'`)).rows[0].status, 'found');
+  });
   console.log(`${passed} database checks passed`);
 } finally { await db.close(); }

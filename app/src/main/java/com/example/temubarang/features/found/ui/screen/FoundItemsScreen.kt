@@ -25,6 +25,7 @@ import com.example.temubarang.ui.theme.BrandBackground
 @Composable
 fun FoundItemsScreen(
     viewModel: FoundItemsViewModel,
+    lostViewModel: com.example.temubarang.features.lost.viewmodel.LostItemsViewModel,
     onBack: () -> Unit,
     onCreate: () -> Unit,
     onDetail: (String) -> Unit
@@ -39,16 +40,15 @@ fun FoundItemsScreen(
 
     AppPage("Barang Ditemukan", onBack = onBack, onRefresh = viewModel::refresh, refreshing = state.isLoading) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppFilterChip(!showRecovery, { showRecovery = false }, label = "Laporan Publik")
-                AppFilterChip(showRecovery, { showRecovery = true }, label = "Konfirmasi Temuan")
+            AppSearchBar(value = query, onValueChange = { query = it },
+                placeholder = if (showRecovery) "Cari konfirmasi temuan" else "Cari barang, kampus, atau lokasi",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            TabRow(selectedTabIndex = if (showRecovery) 1 else 0) {
+                Tab(selected = !showRecovery, onClick = { showRecovery = false }, text = { Text("Laporan Publik") })
+                Tab(selected = showRecovery, onClick = { showRecovery = true }, text = { Text("Konfirmasi Temuan") })
             }
             if (showRecovery) {
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Temuan yang Saya Ajukan", style = MaterialTheme.typography.titleMedium)
-                    Text("Temuan atas Laporan Saya", style = MaterialTheme.typography.titleMedium)
-                    Text("Riwayat privat akan tersedia setelah penyimpanan pengajuan terhubung.")
-                }
+                RecoveryHistory(lostViewModel, query)
                 return@Column
             }
             // The list owns scrolling; the primary action stays above the parent navbar.
@@ -57,10 +57,6 @@ fun FoundItemsScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                item {
-                    AppSearchBar(value = query, onValueChange = { query = it },
-                        placeholder = "Cari barang, kampus, atau lokasi")
-                }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AppFilterChip(onlyOpen, { onlyOpen = !onlyOpen }, label = "Tersedia")

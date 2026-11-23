@@ -11,6 +11,8 @@ import com.example.temubarang.features.lost.model.LostErrorMapper
 import com.example.temubarang.features.lost.model.LostFormValidator
 import com.example.temubarang.features.lost.model.LostUiState
 import com.example.temubarang.features.lost.repository.LostItemRepository
+import com.example.temubarang.features.lost.model.RecoveryRequest
+import com.example.temubarang.features.lost.model.RecoverySubmission
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,53 @@ import kotlinx.coroutines.launch
 class LostItemsViewModel(private val repository: LostItemRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(LostUiState())
     val uiState: StateFlow<LostUiState> = _uiState.asStateFlow()
+
+    data class RecoveryState(
+        val items: List<RecoveryRequest> = emptyList(), val busy: Boolean = false, val error: String? = null
+    )
+
+    private val _recovery = MutableStateFlow(RecoveryState())
+    val recovery = _recovery.asStateFlow()
+    val userId: String? get() = repository.signedInUserId()
+
+    fun loadRecovery() = runRecovery {
+        val requests = repository.listRecovery()
+        _recovery.update { it.copy(items = requests) }
+    }
+
+    fun submitRecovery(submission: RecoverySubmission, photo: Uri?, onSuccess: () -> Unit) = runRecovery {
+        repository.submitRecovery(submission, photo, uploadPhoto = photo != null)
+        onSuccess()
+    }
+
+    fun reviewRecovery(id: String, status: String) = runRecovery {
+        repository.reviewRecovery(id, status)
+        val requests = repository.listRecovery()
+        _recovery.update { it.copy(items = requests) }
+        refresh()
+    }
+
+    private fun runRecovery(action: suspend () -> Unit) {
+        if (_recovery.value.busy) return
+        _recovery.update { it.copy(busy = true, error = null) }
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val message = e.message.orEmpty()
+                val error = when {
+                    "23505" in message -> "Kamu sudah memiliki pengajuan aktif untuk laporan ini."
+                    "23514" in message || "42501" in message -> "Laporan, waktu, atau tindakan ini tidak memenuhi syarat."
+                    else -> "Konfirmasi temuan belum dapat diproses. Periksa koneksi dan kesiapan Supabase."
+                }
+                _recovery.update { it.copy(error = error) }
+            } finally {
+                _recovery.update { it.copy(busy = false) }
+            }
+        }
+    }
 
     fun loadDetail(id: String) {
         viewModelScope.launch {

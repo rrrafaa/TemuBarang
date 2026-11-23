@@ -19,6 +19,8 @@ import com.example.temubarang.features.found.ui.component.FoundFormField
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.profile.viewmodel.ProfileViewModel
 import com.example.temubarang.features.profile.model.ProfileValidator
+import com.example.temubarang.features.profile.model.affiliationTypes
+import com.example.temubarang.features.found.ui.component.FoundChoiceRow
 import com.example.temubarang.ui.component.*
 import com.example.temubarang.ui.theme.BrandIndigo
 
@@ -43,6 +45,9 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
     var email by rememberSaveable(profile?.id) { mutableStateOf(profile?.contactEmail.orEmpty()) }
     var phone by rememberSaveable(profile?.id) { mutableStateOf(profile?.phone.orEmpty()) }
     var share by rememberSaveable(profile?.id) { mutableStateOf(profile?.shareContact ?: false) }
+    var type by rememberSaveable { mutableStateOf("") }
+    var unit by rememberSaveable { mutableStateOf("") }
+    var year by rememberSaveable { mutableStateOf("") }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var firstError by remember { mutableStateOf<String?>(null) }
     var submitVersion by rememberSaveable { mutableIntStateOf(0) }
@@ -54,6 +59,9 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
         name = profile?.displayName.orEmpty(); campus = profile?.campus.orEmpty()
         email = profile?.contactEmail.orEmpty(); phone = profile?.phone.orEmpty()
         share = profile?.shareContact ?: false
+        type = profile?.affiliationType.orEmpty()
+        unit = profile?.facultyOrUnit.orEmpty()
+        year = profile?.entryYear?.toString().orEmpty()
         previousPage = page
         page = "edit"
         successMessage = null
@@ -125,7 +133,11 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                     AppSectionCard("Identitas Kampus") {
                         AppDetailRow("Nama", profile.displayName.ifBlank { "Belum diisi" })
                         AppDetailRow("Universitas", profile.campus.ifBlank { "Belum diisi" })
-                        CampusAffiliationPreview()
+                        AppDetailRow("Jenis pengguna", affiliationTypes[profile.affiliationType] ?: "Belum diisi")
+                        AppDetailRow("Fakultas atau unit", profile.facultyOrUnit ?: "Belum diisi")
+                        if (profile.affiliationType == "student") {
+                            AppDetailRow("Angkatan", profile.entryYear?.toString() ?: "Belum diisi")
+                        }
                     }
                 }
                 item {
@@ -151,7 +163,21 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                         { campus = it; clearError("campus") }, enabled = enabled,
                         errorText = errors["campus"], isFirstError = firstError == "campus",
                         submitVersion = submitVersion)
-                        CampusAffiliationPreview()
+                        AppValidationAnchor(firstError == "type", submitVersion) {
+                            Column {
+                                FoundChoiceRow("Jenis pengguna", affiliationTypes, type,
+                                    { type = it; clearError("type"); clearError("year") }, enabled = enabled)
+                                FoundMessage(errors["type"])
+                            }
+                        }
+                        FoundFormField("Fakultas atau unit", "Contoh: Fakultas Ilmu Komputer", unit,
+                            { unit = it; clearError("unit") }, enabled = enabled, errorText = errors["unit"],
+                            isFirstError = firstError == "unit", submitVersion = submitVersion)
+                        if (type == "student") {
+                            FoundFormField("Angkatan", "Contoh: 2024", year, { year = it; clearError("year") },
+                                enabled = enabled, errorText = errors["year"], isFirstError = firstError == "year",
+                                submitVersion = submitVersion)
+                        }
                     }
                 }
                 item { Text("Kontak dan privasi", style = MaterialTheme.typography.titleMedium) }
@@ -185,31 +211,31 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                 item {
                     GradientPrimaryButton("Simpan Profil", enabled = enabled, loading = state.saving,
                         onClick = {
-                            val found = ProfileValidator.validateFields(name, campus, email, phone, share)
+                            val found = ProfileValidator.validateFields(name, campus, email, phone, share).toMutableMap()
+                            val entryYear = year.trim().toIntOrNull()
+                            if (type !in affiliationTypes) found["type"] = "Pilih jenis pengguna."
+                            if (unit.trim().length !in 2..120) found["unit"] = "Isi fakultas atau unit (2–120 karakter)."
+                            if (type == "student" && (year.trim().length != 4 || entryYear == null ||
+                                    entryYear !in 1900..java.time.LocalDate.now().year)) {
+                                found["year"] = "Isi tahun masuk empat digit yang valid."
+                            }
                             errors = found
                             firstError = found.keys.firstOrNull()
                             if (found.isNotEmpty()) {
                                 submitVersion++
                                 val position = when (firstError) {
                                     "name" -> 2; "campus" -> 3; "email" -> 5
-                                    "phone" -> 6; "share" -> 7; else -> 2
+                                    "phone" -> 6; "share" -> 7; else -> 3
                                 }
                                 scope.launch { listState.animateScrollToItem(position) }
                             } else {
-                                viewModel.save(name, campus, email, phone, share)
+                                viewModel.save(name, campus, email, phone, share, type, unit, entryYear.takeIf { type == "student" })
                             }
                         })
                 }
             }
         }
     }
-}
-
-@Composable
-private fun CampusAffiliationPreview() {
-    AppDetailRow("Jenis pengguna", "Belum tersedia")
-    AppDetailRow("Fakultas atau unit", "Belum tersedia")
-    AppDetailRow("Angkatan mahasiswa", "Belum tersedia")
 }
 
 @Composable
