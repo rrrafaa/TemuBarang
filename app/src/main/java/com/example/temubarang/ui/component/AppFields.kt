@@ -1,6 +1,9 @@
 package com.example.temubarang.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,13 +12,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -144,5 +153,39 @@ fun AppDetailRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.primary)
         Text(value, style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** Pilihan dropdown untuk kode dan label yang dikontrol oleh ViewModel/screen. */
+@Composable
+fun AppDropdownField(
+    label: String,
+    options: Map<String, String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    enabled: Boolean = true
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+        Text(label, style = MaterialTheme.typography.titleSmall)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { expanded = true }, enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(AppRadius.field)
+            ) {
+                Text(options[selected] ?: "Pilih salah satu")
+                Spacer(Modifier.weight(1f))
+                Text("⌄")
+            }
+            DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+                options.forEach { (code, value) ->
+                    DropdownMenuItem(text = { Text(value) }, onClick = {
+                        expanded = false
+                        onSelect(code)
+                    })
+                }
+            }
+        }
     }
 }

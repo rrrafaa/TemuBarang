@@ -133,9 +133,13 @@ fun FoundItemFormScreen(
                             "Contoh: Kunci motor ditemukan di meja kantin.", description,
                             { if (editing) editDescription = it else draftViewModel.changeDescription(it) },
                             enabled = !state.isSaving, minLines = 3)
-                        FoundChoiceRow("Kategori barang", foundCategories, handover.category,
-                            { if (editing) editCategory = it else draftViewModel.changeCategory(it) },
-                            enabled = !state.isSaving)
+                        com.example.temubarang.ui.component.AppDropdownField(
+                            label = "Kategori barang",
+                            options = foundCategories,
+                            selected = handover.category,
+                            onSelect = { if (editing) editCategory = it else draftViewModel.changeCategory(it) },
+                            enabled = !state.isSaving
+                        )
                     }
                     com.example.temubarang.ui.component.AppSectionCard("Lokasi dan waktu penemuan") {
                         FoundFormField("Lokasi penemuan *", "Contoh: Kantin Gedung A, lantai 1",
