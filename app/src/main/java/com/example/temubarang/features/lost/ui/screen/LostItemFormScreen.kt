@@ -73,9 +73,9 @@ fun LostItemFormScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(if (state.isLoading) "Memuat laporan..." else "Laporan tidak ditemukan.")
             }
-        }    } else {
-        LostItemFormContent(viewModel, itemId, item, onBack, onSaved)
         }
+    } else {
+        LostItemFormContent(viewModel, itemId, item, onBack, onSaved)
     }
 }
 
