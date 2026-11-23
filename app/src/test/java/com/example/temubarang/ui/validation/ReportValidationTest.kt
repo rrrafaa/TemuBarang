@@ -55,6 +55,18 @@ class ReportValidationTest {
         ).isEmpty())
     }
 
+    @Test fun foundCreateRequiresPhotoAndKeepsOtherValidFields() {
+        val errors = ReportValidation.found(
+            "Kunci motor", "Gantungan kecil warna biru", "Gedung A",
+            yesterday, validHandover, "open", hasPhoto = false
+        )
+        assertEquals(mapOf("photo" to "Silakan tambahkan foto barang."), errors)
+        assertTrue(ReportValidation.found(
+            "Kunci motor", "Gantungan kecil warna biru", "Gedung A",
+            yesterday, validHandover, "open", hasPhoto = true
+        ).isEmpty())
+    }
+
     @Test fun authFieldsRejectInvalidInputBeforeNetwork() {
         val errors = AuthValidator.validateRegisterFields("A", "salah", "abc", "abc")
         assertEquals(listOf("name", "email", "password"), errors.keys.toList())
