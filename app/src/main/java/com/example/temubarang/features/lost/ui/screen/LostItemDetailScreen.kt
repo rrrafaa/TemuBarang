@@ -36,7 +36,8 @@ fun LostItemDetailScreen(
     viewModel: LostItemsViewModel,
     itemId: String,
     onBack: () -> Unit,
-    onEdit: (String) -> Unit
+    onEdit: (String) -> Unit,
+    onStatusUpdated: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val item = state.items.firstOrNull { it.id == itemId }
@@ -75,19 +76,19 @@ fun LostItemDetailScreen(
                         onClick = { viewModel.clearMessages(); onEdit(item.id) }
                     )
                     OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "found") },
+                        onClick = { viewModel.updateStatus(item.id, "found", onStatusUpdated) },
                         enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
                     ) { Text("Tandai sudah ditemukan") }
                 }
                 if (item.status != "closed") {
                     OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "closed") },
+                        onClick = { viewModel.updateStatus(item.id, "closed", onStatusUpdated) },
                         enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
                     ) { Text("Tutup laporan") }
                 }
                 if (item.status != "open") {
                     OutlinedButton(
-                        onClick = { viewModel.updateStatus(item.id, "open") },
+                        onClick = { viewModel.updateStatus(item.id, "open", onStatusUpdated) },
                         enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()
                     ) { Text("Buka kembali (masih dicari)") }
                 }

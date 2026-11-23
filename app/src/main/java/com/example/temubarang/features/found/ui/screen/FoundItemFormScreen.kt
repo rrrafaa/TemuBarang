@@ -207,6 +207,7 @@ fun FoundItemFormScreen(
                             FoundPhoto(viewModel.photoUrl(item?.imagePath),
                                 Modifier.fillMaxWidth().height(190.dp))
                             AppValidationAnchor(firstError == "status", submitVersion) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FoundChoiceRow(
                                     "Status barang",
                                     listOf("open", "returned", "closed")
@@ -217,6 +218,7 @@ fun FoundItemFormScreen(
                                 errors["status"]?.let {
                                     Text(it, style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error)
+                                }
                                 }
                             }
                         }

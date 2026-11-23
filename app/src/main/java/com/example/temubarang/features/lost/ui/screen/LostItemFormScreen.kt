@@ -92,6 +92,7 @@ private fun LostItemFormContent(
     var firstError by remember { mutableStateOf<String?>(null) }
     var submitVersion by rememberSaveable { mutableIntStateOf(0) }
     fun clearError(key: String) { errors = errors - key }
+    LaunchedEffect(photoUri) { if (photoUri != null) clearError("photo") }
 
     AppPage(
         title = if (editing) "Edit Laporan Barang Hilang" else "Tambah Laporan Barang Hilang",
