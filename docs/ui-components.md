@@ -38,3 +38,37 @@ Profil menampilkan kartu identitas dengan inisial (belum ada fitur avatar), lalu
 Beranda menampilkan sapaan menurut waktu perangkat dan nama profil; jika nama belum dimuat, digunakan “Teman Kampus”. ViewModel profil dibagikan di scope akun sehingga perubahan nama yang tersimpan juga muncul di beranda. Seluruh isi beranda dapat digulir sementara header tetap di atas.
 
 Pemeriksaan perangkat tambahan: pilih kelima tab untuk memeriksa lekukan pada posisi tepi, gulir setiap halaman dan pastikan header diam, uji profil dengan email panjang dan skala teks besar, simpan nama lalu kembali ke Beranda, serta buka keyboard pada editor profil. Pemeriksaan ini belum menggantikan pengujian di emulator/perangkat.
+
+
+## Design System terpusat (revisi November 2026)
+
+- `ui/theme/Color.kt`, `Theme.kt`, dan `Type.kt`: warna identitas, tema Material 3, dan hierarki tipografi. Warna status tambahan ada di `DesignTokens.kt`.
+- `ui/theme/DesignTokens.kt`: `AppSpacing`, `AppRadius`, `AppSizes`, dan `AppStatusColors`. Gunakan token saat menambah komponen; jangan mengulangi angka tanpa alasan.
+- `ui/component/AppFields.kt`: `AppSearchBar`, `AppFormField`, `AppSectionCard`, `AppFilterChip`, `AppStatusBadge`, dan `AppDetailRow`. Field menyediakan label, placeholder, supporting text, status error, jenis keyboard, dan multiline; wrapper per fitur tetap dapat menjaga parameter API lama.
+- `ui/component/AppHeader.kt` + `AppPage.kt`: header yang sama untuk beranda, daftar, tambah/edit, dan detail. Tombol kembali dan refresh dikendalikan callback dari navigasi.
+- `ui/component/AppBottomNavigation.kt`: latar transparan; tanpa bidang solid dan tanpa Canvas lekukan. Setiap tab mempunyai area sentuh dan indikator aktif. Navigasi utama dikelola terpusat oleh `AuthenticatedNavigation`.
+- Komponen foto kamera dan galeri tetap menggunakan implementasi fitur masing-masing. Pada form Found, tanggal sekarang menggunakan `DatePickerField` yang sama dengan Lost.
+
+Contoh:
+```kotlin
+AppSearchBar(value = query, onValueChange = { query = it })
+AppSectionCard("Detail barang") {
+    AppFormField(value = title, onValueChange = { title = it },
+        label = "Nama barang *", placeholder = "Contoh: Kunci motor")
+}
+AppStatusBadge("Masih tersedia")
+```
+
+Urutan Beranda: sapaan nama, sapaan waktu, search, aksi temuan, judul feed, filter, daftar.
+Urutan Ditemukan: search, filter, daftar, dan tombol tambah tetap tersedia. Halaman Hilang menggunakan search yang sama. Semua filter bekerja di state lokal / ViewModel dan tidak mengubah query Supabase.
+Detail Hilang dan Ditemukan memakai section card, foto, label-nilai, serta header yang sama. Data kontak pelapor pada Found tetap mengikuti izin profil; laporan Hilang tidak memuat data kontak pelapor sehingga UI tidak mengada-adakan informasi.
+
+### Checklist uji manual
+
+1. Beranda → Saya Menemukan Barang → tab Ditemukan aktif → pindah Hilang/Klaim/Profil/Beranda → Ditemukan; periksa tombol selalu dapat diklik.
+2. Uji search dan filter dengan query kosong, cocok, tidak cocok, dan pergantian orientasi.
+3. Tambah/edit Lost dan Found, pilih tanggal lewat kalender, unggah foto, buka/tutup keyboard, dan periksa tombol aksi tidak menutup input.
+4. Buka detail Lost/Found, cek tampilan status, back, aksi edit/status/hapus dan pembatasan hak akses.
+5. Uji emulator 320dp dan 360dp, font scale 1.3+, keyboard IME, dan navigasi gestur.
+
+Pemeriksaan ini harus dilakukan melalui Android Studio karena perubahan kode di GitHub tidak dapat menggantikan build/emulator.

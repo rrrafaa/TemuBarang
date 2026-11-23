@@ -3,6 +3,8 @@ package com.example.temubarang.features.found.ui.screen
 import com.example.temubarang.R
 import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.component.AppIcon
+import com.example.temubarang.ui.component.AppDetailRow
+import com.example.temubarang.ui.component.AppStatusBadge
 import com.example.temubarang.features.found.ui.component.FoundSectionCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -89,23 +91,23 @@ fun FoundItemDetailScreen(
                 FoundSectionCard("Informasi Barang") {
                     FoundPhoto(viewModel.photoUrl(item.imagePath), Modifier.fillMaxWidth().height(230.dp))
                     Text(item.title, style = MaterialTheme.typography.headlineSmall, color = BrandNavy)
-                    DetailRow("Deskripsi", item.description)
-                    DetailRow("Lokasi penemuan", item.foundLocation)
-                    DetailRow("Tanggal ditemukan", item.foundAt)
-                    DetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
-                    DetailRow("Kategori", foundCategories[item.category] ?: item.category)
-                    DetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
-                    DetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
-                    if (item.pickupNotes.isNotBlank()) DetailRow("Petunjuk pengambilan", item.pickupNotes)
-                    DetailRow("Status", item.status.foundStatusLabel())
+                    AppDetailRow("Deskripsi", item.description)
+                    AppDetailRow("Lokasi penemuan", item.foundLocation)
+                    AppDetailRow("Tanggal ditemukan", item.foundAt)
+                    AppDetailRow("Kampus", item.campus.ifBlank { "Belum diisi" })
+                    AppDetailRow("Kategori", foundCategories[item.category] ?: item.category)
+                    AppDetailRow("Penyimpan barang", custodyTypes[item.custodyType] ?: item.custodyType)
+                    AppDetailRow("Lokasi pengambilan", item.pickupLocation.ifBlank { "Belum diisi oleh pelapor" })
+                    if (item.pickupNotes.isNotBlank()) AppDetailRow("Petunjuk pengambilan", item.pickupNotes)
+                    AppStatusBadge(item.status.foundStatusLabel(), positive = item.status == "open")
                 }
                 FoundSectionCard("Pelapor") {
                     if (state.reporterLoading) CircularProgressIndicator()
                     FoundMessage(state.reporterError)
                     if (state.reporterError != null) TextButton(onClick = { viewModel.load(itemId) }) { AppIcon(R.drawable.ic_refresh_cw, null); Text(" Muat ulang pelapor") }
                     state.reporter?.let { reporter ->
-                        DetailRow("Nama", reporter.displayName)
-                        DetailRow("Kampus pelapor", reporter.campus.ifBlank { "Belum diisi" })
+                        AppDetailRow("Nama", reporter.displayName)
+                        AppDetailRow("Kampus pelapor", reporter.campus.ifBlank { "Belum diisi" })
                         if (reporter.contactEmail.isNullOrBlank() && reporter.phone.isNullOrBlank()) {
                             Text("Pelapor tidak membagikan kontak. Ikuti petunjuk pengambilan yang tersedia.")
                         }
@@ -149,10 +151,3 @@ fun FoundItemDetailScreen(
     }
 }
 
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-        Text(value, style = MaterialTheme.typography.bodyLarge)
-    }
-}
