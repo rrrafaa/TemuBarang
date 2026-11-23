@@ -85,6 +85,16 @@ fun AuthenticatedNavigation(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val onMainTab = mainTabs.any { it.route == currentRoute }
+    // Satu jalur navigasi untuk tombol Beranda dan seluruh tab, tanpa menumpuk destinasi.
+    val openMainTab: (String) -> Unit = { route ->
+        if (currentRoute != route) {
+            navController.navigate(route) {
+                popUpTo(AppRoute.HOME) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
     val cameraReturnPending by foundDraftViewModel.returnToForm.collectAsState()
 
     // Setelah kamera menutup, kembalikan screen form. Jika Activity/Process mati saat
@@ -104,15 +114,7 @@ fun AuthenticatedNavigation(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onMainTab) {
-                AppBottomNavigation(mainTabs, currentRoute, onSelect = { route ->
-                    if (currentRoute != route) {
-                        navController.navigate(route) {
-                            popUpTo(AppRoute.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                })
+                AppBottomNavigation(mainTabs, currentRoute, onSelect = openMainTab)
             }
         }
     ) { innerPadding ->
@@ -125,8 +127,8 @@ fun AuthenticatedNavigation(
                 HomeScreen(
                     viewModel = homeVm,
                     userName = profileState.profile?.displayName.orEmpty(),
-                    onOpenLost = { navController.navigate(AppRoute.LOST) },
-                    onOpenFound = { navController.navigate(AppRoute.FOUND) },
+                    onOpenLost = { openMainTab(AppRoute.LOST) },
+                    onOpenFound = { openMainTab(AppRoute.FOUND) },
                     onFoundDetail = { navController.navigate("${AppRoute.FOUND_DETAIL}/$it") },
                     errorMessage = authState.error
                 )

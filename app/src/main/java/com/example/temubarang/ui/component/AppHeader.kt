@@ -10,6 +10,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import com.example.temubarang.R
+import com.example.temubarang.ui.theme.AppSizes
 
 /** Header ringan untuk halaman utama maupun subhalaman; inset ditangani screen. */
 @Composable
@@ -21,7 +22,7 @@ fun AppHeader(
     refreshing: Boolean = false,
     enabled: Boolean = true
 ) {
-    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().heightIn(min = AppSizes.minTouch), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) IconButton(onClick = onBack, enabled = enabled) {
             AppIcon(R.drawable.ic_circle_arrow_left_duotone, "Kembali")
         } else Spacer(Modifier.width(48.dp))
