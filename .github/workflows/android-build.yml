@@ -19,9 +19,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu-latest sudah memiliki command-line Android SDK.
+      # Hindari setup-android v3 yang mencoba memasang paket SDK "tools" usang.
       - name: Install Android API 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile app and run local unit tests
         run: |
