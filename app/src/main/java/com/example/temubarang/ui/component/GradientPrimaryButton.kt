@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.ui.theme.BrandGradient
+import com.example.temubarang.ui.theme.AppRadius
+import com.example.temubarang.ui.theme.AppSizes
 
 @Composable
 fun GradientPrimaryButton(
@@ -27,14 +29,14 @@ fun GradientPrimaryButton(
     loading: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(AppRadius.button)
     val brush = if (enabled && !loading) BrandGradient else Brush.horizontalGradient(
         listOf(Color(0xFFA0ACBF), Color(0xFFB4BFCE))
     )
     Button(
         onClick = onClick,
         enabled = enabled && !loading,
-        modifier = modifier.fillMaxWidth().height(54.dp).background(brush, shape),
+        modifier = modifier.fillMaxWidth().height(AppSizes.button).background(brush, shape),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,

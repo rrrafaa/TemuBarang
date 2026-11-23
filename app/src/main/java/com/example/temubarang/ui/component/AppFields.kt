@@ -135,3 +135,14 @@ fun AppStatusBadge(label: String, positive: Boolean = true) {
             color = if (positive) AppStatusColors.successText else AppStatusColors.warningText)
     }
 }
+
+/** Baris label dan nilai yang sama di kedua halaman detail. */
+@Composable
+fun AppDetailRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+        Text(label, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary)
+        Text(value, style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface)
+    }
+}

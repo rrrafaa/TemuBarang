@@ -43,6 +43,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.temubarang.ui.component.AppFormField
+import com.example.temubarang.ui.component.AppSectionCard
+import com.example.temubarang.ui.theme.AppRadius
 import com.example.temubarang.ui.theme.BrandBlue
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
@@ -56,7 +59,7 @@ import java.util.Locale
 /** Garis tepi putus-putus untuk area unggah file. */
 fun Modifier.dashedBorder(
     color: Color,
-    cornerRadius: Dp = 16.dp,
+    cornerRadius: Dp = AppRadius.field,
     strokeWidth: Dp = 1.5.dp
 ): Modifier = this.drawBehind {
     drawRoundRect(
@@ -76,30 +79,7 @@ fun FormSection(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(20.dp),
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = BrandNavy
-                )
-                if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = BrandMuted)
-                }
-            }
-            content()
-        }
-    }
+    AppSectionCard(title = title, subtitle = subtitle, content = content)
 }
 
 @Composable
@@ -114,20 +94,10 @@ fun FormTextField(
     minLines: Int = 1,
     imeAction: ImeAction = ImeAction.Next
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        supportingText = { Text(hint) },
-        singleLine = singleLine,
-        minLines = minLines,
-        shape = RoundedCornerShape(14.dp),
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
-            imeAction = imeAction
-        ),
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth()
+    AppFormField(
+        value = value, onValueChange = onValueChange, label = label,
+        modifier = modifier, supportingText = hint, enabled = enabled,
+        singleLine = singleLine, minLines = minLines, imeAction = imeAction
     )
 }
 
@@ -155,7 +125,7 @@ fun PhotoUploadField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(170.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(AppRadius.field))
                     .background(if (showError) MaterialTheme.colorScheme.errorContainer else BrandSoftBlue)
                     .dashedBorder(borderColor)
                     .clickable(enabled = enabled, onClick = onPickFile),
@@ -242,7 +212,7 @@ fun DatePickerField(
             label = { Text(label) },
             supportingText = { Text("Ketuk untuk memilih tanggal") },
             trailingIcon = { Text("📅") },
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(AppRadius.field),
             modifier = Modifier.fillMaxWidth()
         )
         // Lapisan transparan agar ketukan di mana pun pada kolom membuka kalender.

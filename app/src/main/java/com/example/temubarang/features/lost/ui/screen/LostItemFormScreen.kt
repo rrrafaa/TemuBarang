@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +44,7 @@ import com.example.temubarang.features.lost.ui.component.LostMessage
 import com.example.temubarang.features.lost.ui.component.PhotoUploadField
 import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
 import com.example.temubarang.ui.component.GradientPrimaryButton
+import com.example.temubarang.ui.component.AppPage
 import com.example.temubarang.ui.theme.BrandBackground
 import com.example.temubarang.ui.theme.BrandMuted
 import com.example.temubarang.ui.theme.BrandNavy
@@ -67,19 +68,14 @@ fun LostItemFormScreen(
     LaunchedEffect(itemId) { if (itemId != null && item == null) viewModel.refresh() }
 
     if (itemId != null && item == null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BrandBackground)
-                .systemBarsPadding()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            TextButton(onClick = onBack) { Text("← Kembali") }
-            Text(if (state.isLoading) "Memuat laporan..." else "Laporan tidak ditemukan.")
-        }
-    } else {
+        AppPage("Edit Laporan Barang Hilang", onBack = onBack) {
+            Column(Modifier.fillMaxSize().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (state.isLoading) "Memuat laporan..." else "Laporan tidak ditemukan.")
+            }
+        }    } else {
         LostItemFormContent(viewModel, itemId, item, onBack, onSaved)
+        }
     }
 }
 
@@ -146,24 +142,19 @@ private fun LostItemFormContent(
 
     val busy = state.isSaving || pendingCamera != null
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BrandBackground)
-            .systemBarsPadding()
-            .imePadding()
+    AppPage(
+        title = if (editing) "Edit Laporan Barang Hilang" else "Tambah Laporan Barang Hilang",
+        onBack = onBack, enabled = !state.isSaving
     ) {
-        TextButton(
-            onClick = onBack,
-            enabled = !state.isSaving,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        ) { Text("← Kembali") }
-
+        Column(
+            modifier = Modifier.fillMaxSize().background(BrandBackground)
+                .imePadding().navigationBarsPadding()
+        ) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
