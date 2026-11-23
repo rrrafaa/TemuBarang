@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.ui.component.AppFormField
 import com.example.temubarang.ui.component.AppSectionCard
+import com.example.temubarang.ui.component.AppPhotoPicker
+import com.example.temubarang.ui.component.AppDatePickerField
 import com.example.temubarang.ui.theme.AppRadius
 import com.example.temubarang.ui.theme.BrandBlue
 import com.example.temubarang.ui.theme.BrandMuted
@@ -116,77 +118,25 @@ fun PhotoUploadField(
     onTakePhoto: () -> Unit,
     onRemove: (() -> Unit)?
 ) {
-    val errorColor = MaterialTheme.colorScheme.error
-    val borderColor = if (showError) errorColor else BrandBlue.copy(alpha = 0.55f)
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (previewUrl == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(170.dp)
-                    .clip(RoundedCornerShape(AppRadius.field))
-                    .background(if (showError) MaterialTheme.colorScheme.errorContainer else BrandSoftBlue)
-                    .dashedBorder(borderColor)
-                    .clickable(enabled = enabled, onClick = onPickFile),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("📤", style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        "Unggah foto barang",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = BrandNavy
-                    )
-                    Text(
-                        "Ketuk di sini untuk memilih file\nFormat JPG, PNG, atau WEBP",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = BrandMuted,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        } else {
+    AppPhotoPicker(
+        hasPhoto = previewUrl != null,
+        preview = if (previewUrl != null) ({
             LostPhoto(previewUrl, Modifier.fillMaxWidth().height(210.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onPickFile, enabled = enabled) { Text("Ganti foto") }
-                if (onRemove != null) {
-                    TextButton(
-                        onClick = onRemove,
-                        enabled = enabled,
-                        colors = ButtonDefaults.textButtonColors(contentColor = errorColor)
-                    ) { Text("Batalkan pilihan") }
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onTakePhoto, enabled = enabled) {
-                Text("📷  Atau ambil foto langsung")
-            }
-        }
-
-        if (showError) {
-            Text("Foto barang wajib diunggah.", color = errorColor, style = MaterialTheme.typography.bodySmall)
-        }
-        LostMessage(message)
-    }
+        }) else null,
+        required = true,
+        showError = showError,
+        message = message,
+        enabled = enabled,
+        onGallery = onPickFile,
+        onCamera = onTakePhoto,
+        onRemove = onRemove
+    )
 }
 
 /**
  * Kolom tanggal yang membuka kalender, sehingga pengguna tidak perlu mengetik format manual.
  * Nilai tetap disimpan sebagai YYYY-MM-DD. Tanggal di masa depan tidak dapat dipilih.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerField(
     label: String,
@@ -195,61 +145,5 @@ fun DatePickerField(
     enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    var open by remember { mutableStateOf(false) }
-    val display = remember(value) {
-        runCatching {
-            LocalDate.parse(value).format(
-                DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("id-ID"))
-            )
-        }.getOrDefault(value)
-    }
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = display,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            supportingText = { Text("Ketuk untuk memilih tanggal") },
-            trailingIcon = { Text("📅") },
-            shape = RoundedCornerShape(AppRadius.field),
-            modifier = Modifier.fillMaxWidth()
-        )
-        // Lapisan transparan agar ketukan di mana pun pada kolom membuka kalender.
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clickable(enabled = enabled) { open = true }
-        )
-    }
-
-    if (open) {
-        val todayUtcMillis = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        val initialMillis = runCatching {
-            LocalDate.parse(value).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        }.getOrNull()
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialMillis,
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                    utcTimeMillis <= todayUtcMillis
-            }
-        )
-        DatePickerDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        onValueChange(
-                            Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
-                        )
-                    }
-                    open = false
-                }) { Text("Pilih") }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Batal") } }
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerField(label, value, onValueChange, enabled, modifier)
 }

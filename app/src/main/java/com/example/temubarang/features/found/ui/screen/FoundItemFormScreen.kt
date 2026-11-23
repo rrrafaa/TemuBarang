@@ -141,7 +141,7 @@ fun FoundItemFormScreen(
                         FoundFormField("Lokasi penemuan *", "Contoh: Kantin Gedung A, lantai 1",
                             location, { if (editing) editLocation = it else draftViewModel.changeLocation(it) },
                             enabled = !state.isSaving)
-                        com.example.temubarang.features.lost.ui.component.DatePickerField(
+                        com.example.temubarang.ui.component.AppDatePickerField(
                             label = "Tanggal ditemukan *", value = foundAt,
                             onValueChange = { if (editing) editDate = it else draftViewModel.changeFoundAt(it) },
                             enabled = !state.isSaving
@@ -172,37 +172,22 @@ fun FoundItemFormScreen(
                         if (!editing) {
                             Text("Foto barang (opsional, maksimal 5 MB)",
                                 style = MaterialTheme.typography.bodyMedium)
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(
-                                    onClick = onLaunchCamera,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !state.isSaving && pendingCameraUri == null
-                                ) {
-                                    AppIcon(R.drawable.ic_camera_duotone, null)
-                                    Text(" Ambil Foto")
-                                }
-                                OutlinedButton(
-                                    onClick = onLaunchGallery,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !state.isSaving && pendingCameraUri == null
-                                ) {
-                                    AppIcon(R.drawable.ic_image_duotone, null)
-                                    Text(" Galeri")
-                                }
-                            }
-                            FoundMessage(cameraMessage)
+                            com.example.temubarang.ui.component.AppPhotoPicker(
+                                hasPhoto = photoUri != null,
+                                enabled = !state.isSaving && pendingCameraUri == null,
+                                onGallery = onLaunchGallery,
+                                onCamera = onLaunchCamera,
+                                onRemove = if (photoUri != null) draftViewModel::clearSelectedPhoto else null,
+                                message = cameraMessage,
+                                preview = if (photoUri != null) ({
+                                    FoundPhoto(photoUri.toString(),
+                                        Modifier.fillMaxWidth().height(190.dp))
+                                }) else null
+                            )
                             if (pendingCameraUri != null) {
                                 Text("Memproses foto dari kamera...",
                                     style = MaterialTheme.typography.bodySmall)
                             }
-                            if (photoUri != null) {
-                                FoundPhoto(photoUri.toString(), Modifier.fillMaxWidth().height(190.dp))
-                                TextButton(onClick = draftViewModel::clearSelectedPhoto) {
-                                    Text("Hapus foto pilihan")
-                                }
-                            }
-                            Text("Format: JPG, PNG, WEBP. Foto kamera yang terlalu besar akan diperkecil.",
-                                style = MaterialTheme.typography.bodySmall)
                         } else {
                             Text("Foto tetap menggunakan foto saat laporan dibuat.",
                                 style = MaterialTheme.typography.bodySmall)
