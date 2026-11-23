@@ -137,6 +137,14 @@ fun AuthenticatedNavigation(
         }
     }
 
+    // Setelah simpan sukses, hapus form/detail dari back stack (jangan restore state lama).
+    val finishReportAction: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(AppRoute.HOME) { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
     Scaffold(
         containerColor = BrandBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -181,11 +189,7 @@ fun AuthenticatedNavigation(
                     onLaunchGallery = { onLaunchLostGallery(null) },
                     itemId = null,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.LOST) {
-                        popUpTo(AppRoute.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    } }
+                    onSaved = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
@@ -196,11 +200,7 @@ fun AuthenticatedNavigation(
                     itemId = id,
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate("${AppRoute.LOST_EDIT}/$it") },
-                    onStatusUpdated = { navController.navigate(AppRoute.LOST) {
-                        popUpTo(AppRoute.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    } }
+                    onStatusUpdated = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
@@ -213,11 +213,7 @@ fun AuthenticatedNavigation(
                     onLaunchGallery = { onLaunchLostGallery(id) },
                     itemId = id,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.LOST) {
-                        popUpTo(AppRoute.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    } }
+                    onSaved = { finishReportAction(AppRoute.LOST) }
                 )
             }
 
@@ -239,11 +235,7 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.FOUND) {
-                        popUpTo(AppRoute.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    } }
+                    onSaved = { finishReportAction(AppRoute.FOUND) }
                 )
             }
             composable("${AppRoute.FOUND_DETAIL}/{itemId}") { entry ->
@@ -269,11 +261,7 @@ fun AuthenticatedNavigation(
                     onLaunchCamera = onLaunchCamera,
                     onLaunchGallery = onLaunchGallery,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(AppRoute.FOUND) {
-                        popUpTo(AppRoute.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    } }
+                    onSaved = { finishReportAction(AppRoute.FOUND) }
                 )
             }
             composable(AppRoute.PROFILE) {

@@ -102,11 +102,24 @@ private fun TemuBarangRoot() {
         }
         draftViewModel.finishCameraCapture(photoReady)
     }
-    val galleryContract = remember { ActivityResultContracts.GetContent() }
+    // ACTION_OPEN_DOCUMENT memberi akses URI persisten setelah proses aplikasi direkreasi.
+    val galleryContract = remember { ActivityResultContracts.OpenDocument() }
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = galleryContract
     ) { uri ->
-        draftViewModel.finishGallerySelection(uri?.toString())
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                draftViewModel.finishGallerySelection(uri.toString())
+            } catch (e: SecurityException) {
+                android.util.Log.e("TemuBarangCamera", "Akses foto galeri tidak tersedia", e)
+                draftViewModel.cameraLaunchFailed("Izin membaca foto tidak tersedia. Pilih ulang dari galeri.")
+            }
+        } else {
+            draftViewModel.finishGallerySelection(null)
+        }
     }
 
     val openCamera: () -> Unit = {
@@ -126,7 +139,7 @@ private fun TemuBarangRoot() {
     val openGallery: () -> Unit = {
         try {
             draftViewModel.beginGallerySelection()
-            galleryLauncher.launch("image/*")
+            galleryLauncher.launch(arrayOf("image/*"))
         } catch (e: Exception) {
             android.util.Log.e("TemuBarangCamera", "Gagal membuka galeri", e)
             draftViewModel.cameraLaunchFailed("Galeri tidak dapat dibuka. Silakan coba lagi.")
@@ -141,9 +154,21 @@ private fun TemuBarangRoot() {
         lostDraftViewModel.finishCamera(ready)
     }
     val lostGalleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
-        lostDraftViewModel.finishGallery(uri?.toString())
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                lostDraftViewModel.finishGallery(uri.toString())
+            } catch (e: SecurityException) {
+                android.util.Log.e("TemuBarangLost", "Akses foto galeri tidak tersedia", e)
+                lostDraftViewModel.failedToLaunch("Izin membaca foto tidak tersedia. Pilih ulang dari galeri.")
+            }
+        } else {
+            lostDraftViewModel.finishGallery(null)
+        }
     }
     val openLostCamera: (String?) -> Unit = { id ->
         try {
@@ -158,7 +183,7 @@ private fun TemuBarangRoot() {
     val openLostGallery: (String?) -> Unit = { id ->
         try {
             lostDraftViewModel.beginGallery(id)
-            lostGalleryLauncher.launch("image/*")
+            lostGalleryLauncher.launch(arrayOf("image/*"))
         } catch (e: Exception) {
             android.util.Log.e("TemuBarangLost", "Gagal membuka galeri", e)
             lostDraftViewModel.failedToLaunch("Galeri tidak dapat dibuka. Coba lagi.")
