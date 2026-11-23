@@ -58,7 +58,8 @@ class FoundItemRepository(
         val userId = requireUserId()
         // Sesuai RLS Storage: <auth.uid()>/found/<uuid>.<ext>
         val path = imageUri?.let { uploadPhoto(userId, it) }
-        client.from(TABLE).insert(
+        try {
+            val inserted = client.from(TABLE).insert(
             NewFoundItem(
                 reporterId = userId,
                 title = title.trim(),
@@ -69,7 +70,19 @@ class FoundItemRepository(
                 custodyType = handover.custodyType, pickupLocation = handover.pickupLocation.trim(),
                 pickupNotes = handover.pickupNotes.trim(), imagePath = path
             )
-        )
+            ) { select() }.decodeList<FoundItem>().singleOrNull()
+            check(inserted != null) {
+                "Laporan belum tersimpan. Periksa izin pengguna dan koneksi database."
+            }
+        } catch (e: Exception) {
+            if (path != null) {
+                try { client.storage.from(BUCKET).delete(listOf(path)) }
+                catch (cleanupError: Exception) {
+                    android.util.Log.w("TemuBarangFound", "Gagal membersihkan foto setelah insert gagal", cleanupError)
+                }
+            }
+            throw e
+        }
         Unit
     }
 
