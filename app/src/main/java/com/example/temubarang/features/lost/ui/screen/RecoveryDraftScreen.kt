@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.temubarang.features.found.ui.component.FoundChoiceRow
@@ -20,7 +20,9 @@ import com.example.temubarang.features.found.ui.component.FoundFormField
 import com.example.temubarang.features.found.ui.component.FoundMessage
 import com.example.temubarang.features.lost.model.RecoverySubmission
 import com.example.temubarang.features.lost.ui.component.DatePickerField
-import com.example.temubarang.features.lost.ui.component.LostPhoto
+import com.example.temubarang.features.lost.ui.component.PhotoUploadField
+import com.example.temubarang.features.found.ui.camera.CameraPhotoContract
+import com.example.temubarang.features.found.ui.camera.CameraPhotoUri
 import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
 import com.example.temubarang.ui.component.*
 import java.time.LocalDate
@@ -47,12 +49,25 @@ fun RecoveryDraftScreen(viewModel: LostItemsViewModel, itemId: String, onBack: (
     var firstError by remember { mutableStateOf<String?>(null) }
     var submitVersion by remember { mutableIntStateOf(0) }
     fun clearError(key: String) { errors = errors - key }
-    val enabled = !recovery.busy
+    val context = LocalContext.current
+    var pendingCamera by rememberSaveable(itemId) { mutableStateOf<String?>(null) }
+    var photoMessage by rememberSaveable(itemId) { mutableStateOf<String?>(null) }
+    val enabled = !recovery.busy && pendingCamera == null
+    fun selectPhoto(uri: Uri) {
+        submissionId = UUID.randomUUID().toString()
+        photo = uri.toString()
+        photoMessage = null
+        clearError("photo")
+    }
+    val cameraContract = remember { CameraPhotoContract() }
+    val camera = rememberLauncherForActivityResult(cameraContract) {
+        val uri = pendingCamera?.let(Uri::parse)
+        pendingCamera = null
+        if (uri != null && CameraPhotoUri.hasPhoto(context, uri)) selectPhoto(uri)
+        else photoMessage = "Foto belum diambil. Coba lagi atau pilih dari galeri."
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-        if (it != null) {
-            submissionId = UUID.randomUUID().toString()
-            photo = it.toString()
-        }
+        if (it != null) selectPhoto(it)
     }
 
     BackHandler(enabled = !enabled) {}
@@ -94,10 +109,26 @@ fun RecoveryDraftScreen(viewModel: LostItemsViewModel, itemId: String, onBack: (
                     FoundFormField("Kondisi barang *", "Jelaskan kondisi saat ditemukan", condition,
                         { condition = it; clearError("condition") }, enabled = enabled, errorText = errors["condition"],
                         isFirstError = firstError == "condition", submitVersion = submitVersion)
-                    OutlinedButton(enabled = enabled, onClick = { picker.launch("image/*") }) {
-                        Text(if (photo == null) "Pilih foto pendukung (opsional)" else "Ganti foto pendukung")
+                    AppValidationAnchor(firstError == "photo", submitVersion) {
+                        PhotoUploadField(
+                            previewUrl = photo,
+                            showError = errors["photo"] != null || photoMessage != null,
+                            enabled = enabled,
+                            message = errors["photo"] ?: photoMessage,
+                            onPickFile = { picker.launch("image/*") },
+                            onTakePhoto = {
+                                runCatching {
+                                    val uri = CameraPhotoUri.create(context)
+                                    pendingCamera = uri.toString()
+                                    camera.launch(uri)
+                                }.onFailure {
+                                    pendingCamera = null
+                                    photoMessage = "Kamera tidak bisa dibuka. Pilih foto dari galeri."
+                                }
+                            },
+                            onRemove = if (photo != null) ({ photo = null; photoMessage = null }) else null
+                        )
                     }
-                    photo?.let { LostPhoto(it, Modifier.fillMaxWidth().height(160.dp)) }
                 }
                 AppSectionCard("Informasi Pengambilan") {
                     FoundFormField("Penyimpan barang *", "Contoh: Petugas kampus", custodian,
@@ -121,17 +152,19 @@ fun RecoveryDraftScreen(viewModel: LostItemsViewModel, itemId: String, onBack: (
                         if (hour == null) put("period", "Pilih perkiraan waktu penemuan.")
                         else if (foundAt?.isAfter(now) == true && !containsKey("date")) put("period", "Pilih waktu yang sudah lewat.")
                         if (condition.trim().length !in 2..1000) put("condition", "Isi kondisi barang (2–1000 karakter).")
+                        if (photo == null) put("photo", "Tambahkan foto kondisi barang.")
                         if (custodian.trim().length !in 2..120) put("custodian", "Isi nama pihak penyimpan (2–120 karakter).")
                         if (pickup.trim().length !in 2..200) put("pickup", "Isi lokasi pengambilan (2–200 karakter).")
                         if (notes.trim().length > 1000) put("notes", "Catatan maksimal 1000 karakter.")
                     }
                     firstError = errors.keys.firstOrNull()
                     submitVersion++
-                    if (errors.isEmpty() && foundAt != null) {
+                    val evidence = photo?.let(Uri::parse)
+                    if (errors.isEmpty() && foundAt != null && evidence != null) {
                         viewModel.submitRecovery(RecoverySubmission(
                             submissionId, itemId, location.trim(), foundAt.toInstant().toString(),
-                            condition.trim(), custodian.trim(), pickup.trim(), notes.trim(), photo != null
-                        ), photo?.let(Uri::parse), onSubmitted)
+                            condition.trim(), custodian.trim(), pickup.trim(), notes.trim(), true
+                        ), evidence, onSubmitted)
                     }
                 })
             }

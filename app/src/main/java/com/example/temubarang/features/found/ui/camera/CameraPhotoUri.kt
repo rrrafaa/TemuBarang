@@ -1,6 +1,9 @@
 package com.example.temubarang.features.found.ui.camera
 
+import android.content.ClipData
+import android.content.Intent
 import android.content.Context
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
@@ -25,4 +28,12 @@ object CameraPhotoUri {
     } catch (_: Exception) {
         false
     }
+}
+
+class CameraPhotoContract : ActivityResultContracts.TakePicture() {
+    override fun createIntent(context: Context, input: Uri): Intent =
+        super.createIntent(context, input).apply {
+            clipData = ClipData.newRawUri("Foto TemuBarang", input)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
 }

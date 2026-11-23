@@ -18,7 +18,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RecoveryHistory(viewModel: LostItemsViewModel, query: String, onDetail: (String) -> Unit) {
     val state by viewModel.recovery.collectAsState()
@@ -32,9 +31,11 @@ fun RecoveryHistory(viewModel: LostItemsViewModel, query: String, onDetail: (Str
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppFilterChip(!incoming, { incoming = false }, label = "Temuan yang Saya Ajukan")
-                AppFilterChip(incoming, { incoming = true }, label = "Temuan atas Laporan Saya")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(!incoming, { incoming = false }, modifier = Modifier.weight(1f),
+                    label = { Text("Saya Ajukan") })
+                FilterChip(incoming, { incoming = true }, modifier = Modifier.weight(1f),
+                    label = { Text("Atas Laporan Saya") })
             }
         }
         if (state.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }

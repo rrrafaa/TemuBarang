@@ -6,8 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.enableEdgeToEdge
@@ -34,6 +32,7 @@ import com.example.temubarang.core.navigation.AuthenticatedNavigation
 import com.example.temubarang.core.supabase.SupabaseProvider
 import com.example.temubarang.features.auth.ui.screen.AuthScreen
 import com.example.temubarang.features.auth.viewmodel.AuthViewModel
+import com.example.temubarang.features.found.ui.camera.CameraPhotoContract
 import com.example.temubarang.features.found.ui.camera.CameraPhotoUri
 import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
 import com.example.temubarang.features.lost.viewmodel.LostDraftViewModel
@@ -75,18 +74,7 @@ private fun TemuBarangRoot() {
 
     // Registrasi ActivityResult berada DI LUAR cabang isInitializing/isAuthenticated.
     // Wajib selalu tersedia ketika Activity dibuat ulang sewaktu kamera aktif.
-    val cameraContract = remember { object : ActivityResultContracts.TakePicture() {
-            override fun createIntent(context: Context, input: Uri): Intent =
-                super.createIntent(context, input).apply {
-                    // Beberapa aplikasi kamera memerlukan izin URI eksplisit untuk
-                    // menulis ke FileProvider milik TemuBarang.
-                    clipData = ClipData.newRawUri("Foto TemuBarang", input)
-                    addFlags(
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                }
-        } }
+    val cameraContract = remember { CameraPhotoContract() }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = cameraContract
     ) { success ->

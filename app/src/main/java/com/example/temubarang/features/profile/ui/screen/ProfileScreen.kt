@@ -83,133 +83,130 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
         else -> "Profil Saya"
     }, onBack = if (page != "main") ({ goBack() }) else null,
         onRefresh = if (editing) null else viewModel::load, refreshing = state.loading, enabled = !state.saving && !isLoggingOut) {
-        LazyColumn(
-            Modifier.fillMaxSize().imePadding(), state = listState,
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            item { FoundMessage(state.error); FoundMessage(successMessage, isError = false); FoundMessage(logoutError) }
-            if (state.loading) item { CircularProgressIndicator() }
-            if (page == "main") {
+        Column(Modifier.fillMaxSize().imePadding()) {
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth(), state = listState,
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
                 item {
-                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Surface(Modifier.size(58.dp), shape = CircleShape, color = BrandIndigo.copy(alpha = .1f)) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(profile?.displayName?.trim()?.take(1)?.uppercase()?.ifBlank { "T" } ?: "T",
-                                        style = MaterialTheme.typography.headlineSmall, color = BrandIndigo)
+                    FoundMessage(state.error)
+                    FoundMessage(successMessage, isError = false)
+                    FoundMessage(logoutError)
+                    if (state.loading) CircularProgressIndicator()
+                }
+                if (page == "main") {
+                    item {
+                        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+                            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Surface(Modifier.size(58.dp), shape = CircleShape, color = BrandIndigo.copy(alpha = .1f)) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(profile?.displayName?.trim()?.take(1)?.uppercase()?.ifBlank { "T" } ?: "T",
+                                            style = MaterialTheme.typography.headlineSmall, color = BrandIndigo)
+                                    }
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(profile?.displayName?.ifBlank { "Teman Kampus" } ?: "Teman Kampus", fontWeight = FontWeight.Bold)
+                                    Text(profile?.campus?.ifBlank { "Lengkapi kampusmu" } ?: "Profil belum tersedia", style = MaterialTheme.typography.bodySmall)
+                                    if (!profile?.contactEmail.isNullOrBlank()) Text(profile!!.contactEmail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(profile?.displayName?.ifBlank { "Teman Kampus" } ?: "Teman Kampus", fontWeight = FontWeight.Bold)
-                                Text(profile?.campus?.ifBlank { "Lengkapi kampusmu" } ?: "Profil belum tersedia", style = MaterialTheme.typography.bodySmall)
-                                if (!profile?.contactEmail.isNullOrBlank()) Text(profile!!.contactEmail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item {
+                        ProfileGroup("Akun") {
+                            ProfileMenuRow("Kelola profil", "Nama tampilan dan kampus", R.drawable.ic_user_round_duotone, enabled) { page = "detail" }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                            ProfileMenuRow("Kontak dan privasi", if (profile?.shareContact == true) "Kontak dibagikan pada laporan" else "Kontak tidak dibagikan", R.drawable.ic_mail_duotone, enabled) { page = "contact" }
+                        }
+                    }
+                    item {
+                        ProfileGroup("Bantuan") {
+                            ProfileMenuRow("Panduan pengambilan", "Cara mengembalikan barang dengan aman", R.drawable.ic_package_check_duotone) { info = "help" }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                            ProfileMenuRow("Tentang TemuBarang", "Barang kembali, kampus lebih peduli", R.drawable.ic_house_duotone) { info = "about" }
+                        }
+                    }
+                    item {
+                        OutlinedButton(onClick = onLogout, enabled = !state.saving && !isLoggingOut, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (isLoggingOut) "Sedang keluar…" else "Keluar Akun", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                } else if (!editing && profile != null) {
+                    if (page == "detail") item {
+                        AppSectionCard("Identitas Kampus") {
+                            AppDetailRow("Nama", profile.displayName.ifBlank { "Belum diisi" })
+                            AppDetailRow("Universitas", profile.campus.ifBlank { "Belum diisi" })
+                            AppDetailRow("Jenis pengguna", affiliationTypes[profile.affiliationType] ?: "Belum diisi")
+                            AppDetailRow("Fakultas atau unit", profile.facultyOrUnit ?: "Belum diisi")
+                            if (profile.affiliationType == "student") {
+                                AppDetailRow("Angkatan", profile.entryYear?.toString() ?: "Belum diisi")
+                            }
+                        }
+                    }
+                    item {
+                        AppSectionCard("Kontak dan Privasi") {
+                            AppDetailRow("Email akun", viewModel.accountEmail.orEmpty().ifBlank { "Tidak tersedia" })
+                            AppDetailRow("Email kontak", profile.contactEmail.ifBlank { "Belum diisi" })
+                            AppDetailRow("Telepon", profile.phone.ifBlank { "Belum diisi" })
+                            AppDetailRow("Berbagi kontak", if (profile.shareContact) "Aktif" else "Nonaktif")
+                        }
+                    }
+                    item { GradientPrimaryButton("Edit Profil", enabled = enabled, onClick = { edit() }) }
+                } else if (profile != null) {
+                    item {
+                        AppSectionCard("Identitas Kampus") {
+                            FoundFormField("Nama tampilan *", "Contoh: Rafa", name,
+                                { name = it; clearError("name") }, enabled = enabled,
+                                errorText = errors["name"], isFirstError = firstError == "name", submitVersion = submitVersion)
+                            FoundFormField("Kampus *", "Contoh: Universitas Brawijaya", campus,
+                                { campus = it; clearError("campus") }, enabled = enabled,
+                                errorText = errors["campus"], isFirstError = firstError == "campus", submitVersion = submitVersion)
+                            AppValidationAnchor(firstError == "type", submitVersion) {
+                                Column {
+                                    FoundChoiceRow("Jenis pengguna *", affiliationTypes, type,
+                                        { type = it; clearError("type"); clearError("year") }, enabled = enabled)
+                                    FoundMessage(errors["type"])
+                                }
+                            }
+                            FoundFormField("Fakultas atau unit *", "Contoh: Fakultas Ilmu Komputer", unit,
+                                { unit = it; clearError("unit") }, enabled = enabled, errorText = errors["unit"],
+                                isFirstError = firstError == "unit", submitVersion = submitVersion)
+                            if (type == "student") {
+                                FoundFormField("Angkatan *", "Contoh: 2024", year, { year = it; clearError("year") },
+                                    enabled = enabled, errorText = errors["year"], isFirstError = firstError == "year",
+                                    submitVersion = submitVersion)
+                            }
+                        }
+                    }
+                    item {
+                        AppSectionCard("Kontak dan Privasi") {
+                            FoundFormField("Email kontak (opsional)", "Contoh: rafa@example.com", email,
+                                { email = it; clearError("email") }, enabled = enabled,
+                                errorText = errors["email"], isFirstError = firstError == "email", submitVersion = submitVersion)
+                            FoundFormField("Telepon (opsional)", "Contoh: +628123456789", phone,
+                                { phone = it; clearError("phone") }, enabled = enabled,
+                                errorText = errors["phone"], isFirstError = firstError == "phone", submitVersion = submitVersion)
+                            AppValidationAnchor(firstError == "share", submitVersion) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Bagikan kontak pada laporan saya", Modifier.weight(1f))
+                                        Switch(share, { share = it; clearError("share") }, enabled = enabled)
+                                    }
+                                    FoundMessage(errors["share"])
+                                    Text("Email dan telepon hanya dibagikan jika opsi ini aktif. Email kontak terpisah dari email login.",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }
                 }
-                item {
-                    ProfileGroup("Akun") {
-                        ProfileMenuRow("Kelola profil", "Nama tampilan dan kampus", R.drawable.ic_user_round_duotone, enabled) { page = "detail" }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                        ProfileMenuRow("Kontak dan privasi", if (profile?.shareContact == true) "Kontak dibagikan pada laporan" else "Kontak tidak dibagikan", R.drawable.ic_mail_duotone, enabled) { page = "contact" }
-                    }
-                }
-                item {
-                    ProfileGroup("Bantuan") {
-                        ProfileMenuRow("Panduan pengambilan", "Cara mengembalikan barang dengan aman", R.drawable.ic_package_check_duotone) { info = "help" }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                        ProfileMenuRow("Tentang TemuBarang", "Barang kembali, kampus lebih peduli", R.drawable.ic_house_duotone) { info = "about" }
-                    }
-                }
-                item {
-                    OutlinedButton(onClick = onLogout, enabled = !state.saving && !isLoggingOut, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (isLoggingOut) "Sedang keluar…" else "Keluar Akun", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            } else if (!editing && profile != null) {
-                if (page == "detail") item {
-                    AppSectionCard("Identitas Kampus") {
-                        AppDetailRow("Nama", profile.displayName.ifBlank { "Belum diisi" })
-                        AppDetailRow("Universitas", profile.campus.ifBlank { "Belum diisi" })
-                        AppDetailRow("Jenis pengguna", affiliationTypes[profile.affiliationType] ?: "Belum diisi")
-                        AppDetailRow("Fakultas atau unit", profile.facultyOrUnit ?: "Belum diisi")
-                        if (profile.affiliationType == "student") {
-                            AppDetailRow("Angkatan", profile.entryYear?.toString() ?: "Belum diisi")
-                        }
-                    }
-                }
-                item {
-                    AppSectionCard("Kontak dan Privasi") {
-                        AppDetailRow("Email akun", viewModel.accountEmail.orEmpty().ifBlank { "Tidak tersedia" })
-                        AppDetailRow("Email kontak", profile.contactEmail.ifBlank { "Belum diisi" })
-                        AppDetailRow("Telepon", profile.phone.ifBlank { "Belum diisi" })
-                        AppDetailRow("Berbagi kontak", if (profile.shareContact) "Aktif" else "Nonaktif")
-                    }
-                }
-                item { GradientPrimaryButton("Edit Profil", enabled = enabled, onClick = { edit() }) }
-            } else if (profile != null) {
-                item { Text("Identitas Kampus", style = MaterialTheme.typography.titleMedium) }
-                item {
-                    FoundFormField("Nama tampilan *", "Contoh: Rafa", name,
-                        { name = it; clearError("name") }, enabled = enabled,
-                        errorText = errors["name"], isFirstError = firstError == "name",
-                        submitVersion = submitVersion)
-                }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FoundFormField("Kampus *", "Contoh: Universitas Brawijaya", campus,
-                        { campus = it; clearError("campus") }, enabled = enabled,
-                        errorText = errors["campus"], isFirstError = firstError == "campus",
-                        submitVersion = submitVersion)
-                        AppValidationAnchor(firstError == "type", submitVersion) {
-                            Column {
-                                FoundChoiceRow("Jenis pengguna", affiliationTypes, type,
-                                    { type = it; clearError("type"); clearError("year") }, enabled = enabled)
-                                FoundMessage(errors["type"])
-                            }
-                        }
-                        FoundFormField("Fakultas atau unit", "Contoh: Fakultas Ilmu Komputer", unit,
-                            { unit = it; clearError("unit") }, enabled = enabled, errorText = errors["unit"],
-                            isFirstError = firstError == "unit", submitVersion = submitVersion)
-                        if (type == "student") {
-                            FoundFormField("Angkatan", "Contoh: 2024", year, { year = it; clearError("year") },
-                                enabled = enabled, errorText = errors["year"], isFirstError = firstError == "year",
-                                submitVersion = submitVersion)
-                        }
-                    }
-                }
-                item { Text("Kontak dan privasi", style = MaterialTheme.typography.titleMedium) }
-                item {
-                    FoundFormField("Email kontak (opsional)", "Contoh: rafa@example.com", email,
-                        { email = it; clearError("email") }, enabled = enabled,
-                        errorText = errors["email"], isFirstError = firstError == "email",
-                        submitVersion = submitVersion)
-                }
-                item {
-                    FoundFormField("Telepon (opsional)", "Contoh: +628123456789", phone,
-                        { phone = it; clearError("phone") }, enabled = enabled,
-                        errorText = errors["phone"], isFirstError = firstError == "phone",
-                        submitVersion = submitVersion)
-                }
-                item {
-                    Surface(shape = RoundedCornerShape(16.dp)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Bagikan kontak pada laporan saya", Modifier.weight(1f))
-                                Switch(share, { share = it; clearError("share") }, enabled = enabled)
-                            }
-                            errors["share"]?.let {
-                                Text(it, color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                            Text("Nama dan kampus terlihat oleh pengguna yang login melalui detail laporan. Email dan telepon hanya dibagikan jika opsi ini aktif. Email kontak tidak mengubah email login.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                item {
+            }
+            if (editing && profile != null) {
+                Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
                     GradientPrimaryButton("Simpan Profil", enabled = enabled, loading = state.saving,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                         onClick = {
                             val found = ProfileValidator.validateFields(name, campus, email, phone, share).toMutableMap()
                             val entryYear = year.trim().toIntOrNull()
@@ -220,13 +217,10 @@ fun ProfileScreen(viewModel: ProfileViewModel, onLogout: () -> Unit, isLoggingOu
                                 found["year"] = "Isi tahun masuk empat digit yang valid."
                             }
                             errors = found
-                            firstError = found.keys.firstOrNull()
+                            firstError = listOf("name", "campus", "type", "unit", "year", "email", "phone", "share").firstOrNull { it in found }
                             if (found.isNotEmpty()) {
                                 submitVersion++
-                                val position = when (firstError) {
-                                    "name" -> 2; "campus" -> 3; "email" -> 5
-                                    "phone" -> 6; "share" -> 7; else -> 3
-                                }
+                                val position = if (firstError in setOf("email", "phone", "share")) 2 else 1
                                 scope.launch { listState.animateScrollToItem(position) }
                             } else {
                                 viewModel.save(name, campus, email, phone, share, type, unit, entryYear.takeIf { type == "student" })

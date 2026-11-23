@@ -155,6 +155,7 @@ try {
   });
   await db.exec('reset role');
   await db.exec(await read('../migrations/202611230003_profile_and_recovery_submission.sql'));
+  await db.exec(await read('../migrations/202611230004_require_recovery_evidence.sql'));
   await test('affiliation validates student year and signup initializes contact', async () => {
     const newUser = '00000000-0000-0000-0000-000000000005';
     await db.exec(`insert into auth.users(id,email) values ('${newUser}','student@example.com')`);
@@ -168,17 +169,23 @@ try {
     const lost = '10000000-0000-0000-0000-000000000099';
     const first = '10000000-0000-0000-0000-000000000097';
     const second = '10000000-0000-0000-0000-000000000098';
-    const submit = id => `select public.submit_recovery_request('${id}','${lost}','Kantin',now(),'Kondisi baik','Satpam','Pos Satpam','',false)`;
+    const submit = (id, photo = true) => `select public.submit_recovery_request('${id}','${lost}','Kantin',now(),'Kondisi baik','Satpam','Pos Satpam','',${photo})`;
+    const uploadEvidence = (user, id) => db.exec(`insert into storage.objects(bucket_id,name)
+      values ('recovery-evidence','${user}/${id}.jpg')`);
     await login(owner);
     await db.exec(`insert into public.lost_items(id,reporter_id,title,description,last_seen_location,lost_at)
       values ('${lost}','${owner}','Kunci motor','Kunci motor merah','Kantin',current_date)`);
     await rejects(submit(first), '42501');
     await login(member);
+    await rejects(submit(first, false), '23514');
+    await rejects(submit(first), '23514');
+    await uploadEvidence(member, first);
     await db.exec(submit(first));
     await db.exec(submit(first));
     await rejects(`select public.review_recovery_request('${first}','completed')`, '42501');
     await login(stranger);
     assert.equal((await db.query('select id from public.recovery_requests')).rows.length, 0);
+    await uploadEvidence(stranger, second);
     await db.exec(submit(second));
     await login(owner);
     await rejects(`update public.lost_items set status='closed' where id='${lost}'`, '23514');
