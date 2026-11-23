@@ -33,6 +33,7 @@ import com.example.temubarang.features.home.viewmodel.HomeViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemsScreen
 import com.example.temubarang.features.lost.ui.screen.LostItemFormScreen
 import com.example.temubarang.features.lost.viewmodel.LostItemsViewModel
+import com.example.temubarang.features.lost.viewmodel.LostDraftViewModel
 import com.example.temubarang.features.lost.ui.screen.LostItemDetailScreen
 import com.example.temubarang.ui.theme.BrandBackground
 
@@ -71,6 +72,9 @@ fun AuthenticatedNavigation(
     authState: AuthUiState,
     navController: NavHostController,
     foundDraftViewModel: FoundDraftViewModel,
+    lostDraftViewModel: LostDraftViewModel,
+    onLaunchLostCamera: (String?) -> Unit,
+    onLaunchLostGallery: (String?) -> Unit,
     onLaunchCamera: () -> Unit,
     onLaunchGallery: () -> Unit,
     onLogout: () -> Unit
@@ -122,6 +126,17 @@ fun AuthenticatedNavigation(
         }
     }
 
+    val lostReturnPending by lostDraftViewModel.returnToForm.collectAsState()
+    val lostReturnRoute by lostDraftViewModel.returnRoute.collectAsState()
+    LaunchedEffect(lostReturnPending, lostReturnRoute, currentRoute) {
+        if (lostReturnPending && currentRoute != null) {
+            if (currentRoute != lostReturnRoute) {
+                navController.navigate(lostReturnRoute) { launchSingleTop = true }
+            }
+            lostDraftViewModel.acknowledgeReturn()
+        }
+    }
+
     Scaffold(
         containerColor = BrandBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -161,6 +176,9 @@ fun AuthenticatedNavigation(
             composable(AppRoute.LOST_CREATE) {
                 LostItemFormScreen(
                     viewModel = lostVm,
+                    draftViewModel = lostDraftViewModel,
+                    onLaunchCamera = { onLaunchLostCamera(null) },
+                    onLaunchGallery = { onLaunchLostGallery(null) },
                     itemId = null,
                     onBack = { navController.popBackStack() },
                     onSaved = { navController.navigate(AppRoute.LOST) {
@@ -190,6 +208,9 @@ fun AuthenticatedNavigation(
                 val id = entry.arguments?.getString("itemId") ?: return@composable
                 LostItemFormScreen(
                     viewModel = lostVm,
+                    draftViewModel = lostDraftViewModel,
+                    onLaunchCamera = { onLaunchLostCamera(id) },
+                    onLaunchGallery = { onLaunchLostGallery(id) },
                     itemId = id,
                     onBack = { navController.popBackStack() },
                     onSaved = { navController.navigate(AppRoute.LOST) {

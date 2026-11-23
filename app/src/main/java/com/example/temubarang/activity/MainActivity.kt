@@ -36,6 +36,7 @@ import com.example.temubarang.features.auth.ui.screen.AuthScreen
 import com.example.temubarang.features.auth.viewmodel.AuthViewModel
 import com.example.temubarang.features.found.ui.camera.CameraPhotoUri
 import com.example.temubarang.features.found.viewmodel.FoundDraftViewModel
+import com.example.temubarang.features.lost.viewmodel.LostDraftViewModel
 import com.example.temubarang.ui.theme.TemuBarangTheme
 
 class MainActivity : ComponentActivity() {
@@ -70,6 +71,7 @@ private fun TemuBarangRoot() {
     val navController = key(authState.userId) { rememberNavController() }
     val context = LocalContext.current
     val draftViewModel: FoundDraftViewModel = viewModel()
+    val lostDraftViewModel: LostDraftViewModel = viewModel()
 
     // Registrasi ActivityResult berada DI LUAR cabang isInitializing/isAuthenticated.
     // Wajib selalu tersedia ketika Activity dibuat ulang sewaktu kamera aktif.
@@ -131,8 +133,43 @@ private fun TemuBarangRoot() {
         }
     }
 
+    // Launcher Lost berada di root agar callback tetap ada setelah Activity direkreasi.
+    val lostCameraLauncher = rememberLauncherForActivityResult(cameraContract) { success ->
+        val uri = lostDraftViewModel.pendingCameraUri.value?.let(Uri::parse)
+        val ready = uri != null && CameraPhotoUri.hasPhoto(context, uri)
+        if (!success && ready) android.util.Log.w("TemuBarangLost", "Kamera menulis foto walaupun hasil canceled")
+        lostDraftViewModel.finishCamera(ready)
+    }
+    val lostGalleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        lostDraftViewModel.finishGallery(uri?.toString())
+    }
+    val openLostCamera: (String?) -> Unit = { id ->
+        try {
+            val uri = CameraPhotoUri.create(context)
+            lostDraftViewModel.beginCamera(uri.toString(), id)
+            lostCameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            android.util.Log.e("TemuBarangLost", "Gagal membuka kamera", e)
+            lostDraftViewModel.failedToLaunch("Kamera tidak dapat dibuka. Coba pilih foto dari galeri.")
+        }
+    }
+    val openLostGallery: (String?) -> Unit = { id ->
+        try {
+            lostDraftViewModel.beginGallery(id)
+            lostGalleryLauncher.launch("image/*")
+        } catch (e: Exception) {
+            android.util.Log.e("TemuBarangLost", "Gagal membuka galeri", e)
+            lostDraftViewModel.failedToLaunch("Galeri tidak dapat dibuka. Coba lagi.")
+        }
+    }
+
     LaunchedEffect(authState.isInitializing, authState.isAuthenticated) {
-        if (!authState.isInitializing && !authState.isAuthenticated) draftViewModel.clearAfterSuccessfulSave()
+        if (!authState.isInitializing && !authState.isAuthenticated) {
+            draftViewModel.clearAfterSuccessfulSave()
+            lostDraftViewModel.clearAfterSuccess()
+        }
     }
     when {
         authState.isInitializing -> CenteredMessage("Memeriksa sesi pengguna...", loading = true)
@@ -140,6 +177,9 @@ private fun TemuBarangRoot() {
             authState = authState,
             navController = navController,
             foundDraftViewModel = draftViewModel,
+            lostDraftViewModel = lostDraftViewModel,
+            onLaunchLostCamera = openLostCamera,
+            onLaunchLostGallery = openLostGallery,
             onLaunchCamera = openCamera,
             onLaunchGallery = openGallery,
             onLogout = authViewModel::logout
